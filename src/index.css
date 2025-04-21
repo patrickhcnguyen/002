@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 20% 98%; /* #F8F9FA - Off-white background */
+    --foreground: 0 0% 20%; /* #333333 - Charcoal text */
+
+    --card: 210 20% 98%;
+    --card-foreground: 0 0% 20%;
+
+    --popover: 210 20% 98%;
+    --popover-foreground: 0 0% 20%;
+
+    --primary: 151 35% 30%; /* #2D6A4F - Dark green */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 158 43% 19%; /* #1B4332 - Darker green */
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 210 9% 31%; /* #495057 - Dark Gray */
+    --muted-foreground: 0 0% 20%; /* Changed to charcoal */
+
+    --accent: 151 47% 52%; /* #52B788 - Fresh green */
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 354 70% 54%; /* #DC3545 - Error red */
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 210 14% 83%; /* #CED4DA - Mid Gray */
+    --input: 210 14% 83%;
+    --ring: 151 47% 52%;
+
+    --radius: 0.5rem;
+
+    /* Additional semantic colors */
+    --warning: 45 100% 51%; /* #FFC107 */
+    --warning-foreground: 0 0% 20%;
+
+    --info: 209 39% 35%; /* #355C7D */
+    --info-foreground: 0 0% 100%;
+
+    --success: 151 47% 52%; /* #52B788 */
+    --success-foreground: 0 0% 100%;
+
+    --warm: 17 87% 78%; /* #F8B195 */
+    --warm-foreground: 0 0% 20%;
+
+    --cool: 209 39% 35%; /* #355C7D */
+    --cool-foreground: 0 0% 100%;
+  }
+
+  .dark {
+    --background: 0 0% 20%;
+    --foreground: 210 20% 98%;
+
+    --card: 0 0% 20%;
+    --card-foreground: 210 20% 98%;
+
+    --popover: 0 0% 20%;
+    --popover-foreground: 210 20% 98%;
+
+    --primary: 151 47% 52%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 157 38% 40%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 215 20% 45%;
+    --muted-foreground: 210 20% 96%;
+
+    --accent: 151 47% 52%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 354 70% 54%;
+    --destructive-foreground: 210 20% 98%;
+
+    --border: 215 20% 45%;
+    --input: 215 20% 45%;
+    --ring: 151 47% 52%;
+
+    /* Additional semantic colors - dark mode */
+    --warning: 45 100% 51%;
+    --warning-foreground: 0 0% 20%;
+
+    --info: 209 39% 35%;
+    --info-foreground: 0 0% 100%;
+
+    --success: 151 47% 52%;
+    --success-foreground: 0 0% 100%;
+
+    --warm: 17 87% 78%;
+    --warm-foreground: 0 0% 20%;
+
+    --cool: 209 39% 35%;
+    --cool-foreground: 0 0% 100%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground transition-colors duration-300;
+  }
+}
