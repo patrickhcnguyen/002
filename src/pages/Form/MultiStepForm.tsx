@@ -4,6 +4,20 @@ import "react-datepicker/dist/react-datepicker.css";
 import './styles.css'; 
 import supabase from '@/lib/supabaseClient'; 
 
+interface StaffRequirement {
+  date: string;
+  position: string;
+  count: number;
+  startTime: string;
+  endTime: string;
+}
+
+interface StaffInput {
+  position: string;
+  count: string;
+  startTime: string;
+  endTime: string;
+}
 
 const MultiStepForm: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -14,6 +28,7 @@ const MultiStepForm: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const staffRequirementsRef = useRef<HTMLDivElement>(null);
   const [showThankYou, setShowThankYou] = useState(false);
+  const [staffInputs, setStaffInputs] = useState<Record<string, StaffInput>>({});
 
   const positionImages = {
     "Brand Ambassadors": "https://images.squarespace-cdn.com/content/65d3c0aefe9b024b40b6fa20/f1f125a8-db1a-40ad-aa6c-0460c4e521f5/F864B7BE-D5ED-4F06-8D41-991BDBE0D5FD.jpg",
@@ -96,27 +111,40 @@ const MultiStepForm: React.FC = () => {
     if (staffRequirementsRef.current && selectedPositions.length > 0) {
       staffRequirementsRef.current.innerHTML = '';
       selectedPositions.forEach((position) => {
+        const safePosition = position.replace(/\s+/g, '-'); 
         const positionDiv = document.createElement('div');
-        positionDiv.className = 'staff-requirement';
+        positionDiv.className = 'staff-requirement mb-6';
+        positionDiv.setAttribute('data-position', position);
         positionDiv.innerHTML = `
-          <p>${position}</p>
-          <div class="staff-requirement-row">
+          <p class="font-medium mb-2">${position}</p>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label for="${position}-count">How many ${position} needed:</label>
+              <label for="${safePosition}-count">Number of Staff:</label>
               <input 
                 type="number" 
-                id="${position}-count"
-                name="${position}-count" 
+                id="${safePosition}-count"
+                name="${safePosition}-count" 
+                class="w-full p-2 border rounded-md"
+                min="1"
+                required 
+              />
+            </div>
+            <div>
+              <label for="${safePosition}-start">Start Time:</label>
+              <input 
+                type="time" 
+                id="${safePosition}-start"
+                name="${safePosition}-start" 
                 class="w-full p-2 border rounded-md"
                 required 
               />
             </div>
             <div>
-              <label for="${position}-hours">Hours per shift:</label>
+              <label for="${safePosition}-end">End Time:</label>
               <input 
-                type="number" 
-                id="${position}-hours"
-                name="${position}-hours" 
+                type="time" 
+                id="${safePosition}-end"
+                name="${safePosition}-end" 
                 class="w-full p-2 border rounded-md"
                 required 
               />
@@ -128,46 +156,116 @@ const MultiStepForm: React.FC = () => {
     }
   };
 
+  const renderStaffRequirements = () => {
+    return selectedPositions.map((position) => {
+      const safePosition = position.replace(/\s+/g, '-');
+      return (
+        <div key={position} className="staff-requirement mb-6">
+          <p className="font-medium mb-2">{position}</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label htmlFor={`${safePosition}-count`}>Number of Staff:</label>
+              <input 
+                type="number" 
+                id={`${safePosition}-count`}
+                value={staffInputs[position]?.count || ''}
+                onChange={(e) => handleStaffInputChange(position, 'count', e.target.value)}
+                className="w-full p-2 border rounded-md"
+                min="1"
+                required 
+              />
+            </div>
+            <div>
+              <label htmlFor={`${safePosition}-start`}>Start Time:</label>
+              <input 
+                type="time" 
+                id={`${safePosition}-start`}
+                value={staffInputs[position]?.startTime || ''}
+                onChange={(e) => handleStaffInputChange(position, 'startTime', e.target.value)}
+                className="w-full p-2 border rounded-md"
+                required 
+              />
+            </div>
+            <div>
+              <label htmlFor={`${safePosition}-end`}>End Time:</label>
+              <input 
+                type="time" 
+                id={`${safePosition}-end`}
+                value={staffInputs[position]?.endTime || ''}
+                onChange={(e) => handleStaffInputChange(position, 'endTime', e.target.value)}
+                className="w-full p-2 border rounded-md"
+                required 
+              />
+            </div>
+          </div>
+        </div>
+      );
+    });
+  };
+
+  const handleStaffInputChange = (position: string, field: keyof StaffInput, value: string) => {
+    setStaffInputs(prev => ({
+      ...prev,
+      [position]: {
+        ...prev[position],
+        position,
+        [field]: value
+      }
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
     setIsSubmitting(true);
 
-    // Get staff requirements based on whether it's a multi-day or single-day event
-    const staffRequirements = selectedDates.length > 1
-      ? (document.getElementById('eventDetails') as HTMLTextAreaElement)?.value
-      : Array.from(document.querySelectorAll('#staffRequirements .staff-requirement'))
-          .map(div => {
-            const position = (div as HTMLElement).querySelector('p')?.textContent || '';
-            const count = (div.querySelector(`[name="${position}-count"]`) as HTMLInputElement)?.value;
-            const hours = (div.querySelector(`[name="${position}-hours"]`) as HTMLInputElement)?.value;
-            return {
-              position,
-              count: parseInt(count),
-              hours: parseInt(hours)
-            };
-          });
+    const formattedDate = selectedDates[0] ? 
+      selectedDates[0].toISOString().split('T')[0] : 
+      null;
 
-    // Format dates in mm-dd-yyyy format
-    const formattedDates = selectedDates.map(date => {
-      const month = (date.getMonth() + 1).toString().padStart(2, '0');
-      const day = date.getDate().toString().padStart(2, '0');
-      const year = date.getFullYear();
-      return `${month}-${day}-${year}`;
-    });
+    const staffRequirements: StaffRequirement[] = selectedPositions
+      .map(position => {
+        const input = staffInputs[position];
+        if (!input) return null;
+        
+        return {
+          date: formattedDate || '',
+          position: position,
+          count: parseInt(input.count || '0'),
+          startTime: input.startTime,
+          endTime: input.endTime
+        };
+      })
+      .filter((req): req is StaffRequirement => 
+        req !== null && req.count > 0 && req.startTime !== '' && req.endTime !== ''
+      );
+
+    console.log('Staff Requirements:', staffRequirements);
 
     const payload = {
       first_name: formData.firstName,
       last_name: formData.lastName,
       email: formData.email,
       phone_number: formData.phoneNumber,
-      type_of_staff: selectedPositions, // Using selectedPositions directly instead of formData.selectedPositions
+      type_of_staff: selectedPositions,
       type_of_event: formData.eventType,
       event_location: formData.location,
-      event_date: formattedDates, // Array of formatted dates
-      staff_requirements: staffRequirements, // Will be either array of requirements or text for multi-day
+      event_date: formattedDate,
+      staff_requirements: staffRequirements,
       created_at: new Date().toISOString()
     };
+
+    if (!formattedDate) {
+      alert('Please select an event date');
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (staffRequirements.length === 0) {
+      alert('Please add staff requirements');
+      setIsSubmitting(false);
+      return;
+    }
 
     try {
       const { error } = await supabase
@@ -199,6 +297,7 @@ const MultiStepForm: React.FC = () => {
     setSelectedDates([]);
     setCurrentStep(1);
   };
+
 
   return (
     <div className="multi-step-form-container">
@@ -293,8 +392,9 @@ const MultiStepForm: React.FC = () => {
           {currentStep === 3 && (
             <div className="form-step active">
               <h2>Staff Requirements</h2>
-              <div id="staffRequirements" ref={staffRequirementsRef}></div>
-              <div id="scrollIndicator">Scroll for more options</div>
+              <div id="staffRequirements">
+                {renderStaffRequirements()}
+              </div>
               <div className="button-group">
                 <button type="button" onClick={() => prevStep(3)}>Back</button>
                 <button type="button" onClick={() => nextStep(3)}>Next</button>
