@@ -82,24 +82,26 @@ const MultiStepForm: React.FC = () => {
     if (staffRequirementsRef.current && selectedPositions.length > 0) {
       staffRequirementsRef.current.innerHTML = '';
       selectedPositions.forEach((position) => {
-        const div = document.createElement('div');
-        div.className = 'staff-requirement';
-        div.innerHTML = `
+        const positionDiv = document.createElement('div');
+        positionDiv.className = 'staff-requirement';
+        positionDiv.innerHTML = `
           <p>${position}</p>
           <div class="staff-requirement-row">
             <div>
-              <label>How many ${position} needed:</label>
+              <label for="${position}-count">How many ${position} needed:</label>
               <input 
                 type="number" 
+                id="${position}-count"
                 name="${position}-count" 
                 class="w-full p-2 border rounded-md"
                 required 
               />
             </div>
             <div>
-              <label>Hours per shift:</label>
+              <label for="${position}-hours">Hours per shift:</label>
               <input 
                 type="number" 
+                id="${position}-hours"
                 name="${position}-hours" 
                 class="w-full p-2 border rounded-md"
                 required 
@@ -107,7 +109,7 @@ const MultiStepForm: React.FC = () => {
             </div>
           </div>
         `;
-        staffRequirementsRef.current.appendChild(div);
+        staffRequirementsRef.current.appendChild(positionDiv);
       });
     }
   };
