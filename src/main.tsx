@@ -17,6 +17,7 @@ import Recruit from './pages/Recruit.tsx';
 import Settings from './pages/Settings.tsx';
 import Login from './pages/Login.tsx';
 import OnboardingForm from './components/OnboardingForm.tsx';
+import MultiStepForm from './pages/Form/MultiStepForm.tsx';
 import { mobileEmployeeRoutes } from './routes/mobileEmployeeRoutes';
 import './index.css';
 
@@ -86,6 +87,10 @@ const router = createBrowserRouter([
       {
         path: "onboarding",
         element: <OnboardingForm />,
+      },
+      {
+        path: "staffing-request",
+        element: <MultiStepForm />,
       },
       mobileEmployeeRoutes,
       {
