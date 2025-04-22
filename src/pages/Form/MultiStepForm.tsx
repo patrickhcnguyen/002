@@ -284,6 +284,7 @@ const MultiStepForm: React.FC = () => {
     e.preventDefault();
     if (isSubmitting) return;
     setIsSubmitting(true);
+
     const staffRequirements: StaffRequirement[] = selectedDates.flatMap(date => {
       const formattedDate = formatDate(date, 'yyyy-MM-dd');
       return selectedPositions
@@ -304,8 +305,6 @@ const MultiStepForm: React.FC = () => {
         );
     });
 
-    console.log('Staff Requirements:', staffRequirements);
-
     const payload = {
       first_name: formData.firstName,
       last_name: formData.lastName,
@@ -319,22 +318,21 @@ const MultiStepForm: React.FC = () => {
       staff_requirements: staffRequirements,
       created_at: new Date().toISOString()
     };
-    console.log(payload);
-
-    if (staffRequirements.length === 0) {
-      alert('Please add staff requirements');
-      setIsSubmitting(false);
-      return;
-    }
 
     try {
-      const { error } = await supabase
-        .from('Requests')
-        .insert([payload]);
+      const response = await fetch('https://huydudorftiektexxpei.supabase.co/functions/v1/createRequestWithInvoice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_BEARER_TOKEN}`
+        },
+        body: JSON.stringify(payload)
+      });
 
-      if (error) {
-        console.error('Supabase error:', error);
-        throw error;
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error?.message || 'An error occurred');
       }
 
       console.log('Form submitted successfully');
