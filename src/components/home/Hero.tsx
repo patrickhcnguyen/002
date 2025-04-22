@@ -12,9 +12,16 @@ export function Hero() {
             <LogoDisplay />
             <span className="text-2xl font-bold text-primary">Evershift</span>
           </div>
-          <Link to="/dashboard">
-            <Button variant="outline">Sign In</Button>
-          </Link>
+          <div className="flex gap-4">
+            <Link to="/staffing-request">
+              <Button variant="outline" className="bg-accent text-white hover:bg-accent/90">
+                Request Staff
+              </Button>
+            </Link>
+            <Link to="/dashboard">
+              <Button variant="outline">Sign In</Button>
+            </Link>
+          </div>
         </div>
       </nav>
 
