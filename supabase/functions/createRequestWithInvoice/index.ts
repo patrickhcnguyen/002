@@ -2,6 +2,18 @@ import { serve } from "https://deno.land/std@0.192.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 serve(async (req) => {
+  // Add CORS headers
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS'
+  };
+
+  // Handle OPTIONS request (preflight)
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
   try {
     console.log('Environment check:', {
       url_exists: !!Deno.env.get('SUPABASE_URL'),
@@ -42,7 +54,7 @@ serve(async (req) => {
         { status: 500 }
       );
     }
-    
+      
 
     const invoicePayload = {
       request_id: requestData.id,
@@ -79,25 +91,27 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ data: invoiceData }), {
       status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders
+      }
     });
   } catch (error) {
     console.error('Caught error:', error);
-    return new Response(
-      JSON.stringify({ 
-        error: {
-          message: error.message,
-          stack: error.stack
-        }
-      }),
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders
+      }
+    });
   }
 });
 
 /**
 supabase functions deploy createRequestWithInvoice
-curl -i -X POST 'http://localhost:54321/functions/v1/createRequestWithInvoice' \
--H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0' \
+curl -i -X POST 'https://huydudorftiektexxpei.supabase.co/functions/v1/createRequestWithInvoice' \
+-H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh1eWR1ZG9yZnRpZWt0ZXh4cGVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUyODAzMjYsImV4cCI6MjA2MDg1NjMyNn0.BZHCCicas24Zh6-5r_QqLq8QRYInx6D2zPHVsqYnovA" \
 -H "Content-Type: application/json" \
 --data '{
   "first_name": "Patrick",
