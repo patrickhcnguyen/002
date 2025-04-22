@@ -7,6 +7,7 @@ import { formatDate } from 'date-fns';
 import MapboxGeocoder from '@mapbox/mapbox-gl-geocoder';
 import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { geocodeAndFindNearestOffice } from './locationService';
 
 
 interface StaffRequirement {
@@ -92,13 +93,19 @@ const MultiStepForm: React.FC = () => {
         geocoder.addTo('#geocoder-container');
       }
 
-      geocoder.on('result', (e) => {
-        const result = e.result;
-        setFormData(prev => ({
-          ...prev,
-          location: result.place_name,
-          coordinates: result.geometry.coordinates
-        }));
+      geocoder.on('result', async (e) => {
+        try {
+          const location = await geocodeAndFindNearestOffice(e.result.place_name);
+          setFormData(prev => ({
+            ...prev,
+            location: location.placeName,
+            coordinates: location.coordinates,
+            nearestOffice: location.nearestOffice
+          }));
+        } catch (error) {
+          console.error('Error processing location:', error);
+          alert('Error processing location. Please try again.');
+        }
       });
 
       return () => {
@@ -307,6 +314,7 @@ const MultiStepForm: React.FC = () => {
       type_of_staff: selectedPositions,
       type_of_event: formData.eventType,
       event_location: formData.location,
+      closest_branch: formData.nearestOffice?.name,
       event_date: selectedDates[0] ? selectedDates[0].toISOString().split('T')[0] : null,
       staff_requirements: staffRequirements,
       created_at: new Date().toISOString()
