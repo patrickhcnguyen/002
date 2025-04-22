@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
-import './styles.css'; // <- Import your original CSS here
+import './styles.css'; 
+import supabase from '@/lib/supabaseClient'; 
 
 
 const MultiStepForm: React.FC = () => {
@@ -14,8 +15,21 @@ const MultiStepForm: React.FC = () => {
   const staffRequirementsRef = useRef<HTMLDivElement>(null);
   const [showThankYou, setShowThankYou] = useState(false);
 
+  const positionImages = {
+    "Brand Ambassadors": "https://images.squarespace-cdn.com/content/65d3c0aefe9b024b40b6fa20/f1f125a8-db1a-40ad-aa6c-0460c4e521f5/F864B7BE-D5ED-4F06-8D41-991BDBE0D5FD.jpg",
+    "Bartenders": "https://images.squarespace-cdn.com/content/65d3c0aefe9b024b40b6fa20/aab8a440-7624-4851-852e-56010bf8c40a/818E85D3-0507-401F-9C56-64EBB2420930_4_5005_c.jpeg",
+    "Production Assistants": "https://images.squarespace-cdn.com/content/65d3c0aefe9b024b40b6fa20/a7745cd3-de4a-4869-8a07-fbc780097b81/IMG_1915.jpeg",
+    "Catering Staff": "https://images.squarespace-cdn.com/content/65d3c0aefe9b024b40b6fa20/9ac51559-94cb-4df8-b304-6292023d427f/AFB61D4E-AA65-4D17-8F34-4E50050F9725_4_5005_c.jpeg",
+    "Model Staff": "https://images.squarespace-cdn.com/content/65d3c0aefe9b024b40b6fa20/33f2610c-f979-41e2-98a8-b33c30ca4b9b/DA2CD34A-A52D-4C98-890F-5058246CB6F6.JPG",
+    "Registration Staff": "https://images.squarespace-cdn.com/content/65d3c0aefe9b024b40b6fa20/89999afb-dde9-4592-86f6-b0f285742d3c/5BD59C48-F696-42A8-B1F3-AB8324BD1A9E.jpg",
+    "Convention Staff": "https://images.squarespace-cdn.com/content/65d3c0aefe9b024b40b6fa20/1b99adb3-76f3-41b0-a01c-c24c5f14439e/12013A5A-50C6-48B0-98F3-076623A5A98C_4_5005_c.jpeg",
+  } as const;
+
+  const positions = Object.keys(positionImages);
+
   useEffect(() => {
     if (currentStep === 3) {
+      // should fix this to be multiple headers/rows instead of one text box 
       if (selectedDates.length > 1) {
         if (staffRequirementsRef.current) {
           staffRequirementsRef.current.innerHTML = `
@@ -26,9 +40,9 @@ const MultiStepForm: React.FC = () => {
               class="w-full p-3 border rounded-md min-h-[120px]"
               required 
               placeholder="Example:
-09/14/2024 - 10 Convention Staff from 10 am - 6 pm
-09/15/2024 - 8 Convention Staff from 8 am - 4 pm
-09/16/2024 - 15 Convention Staff from 2 pm - 10 pm"></textarea>
+              09/14/2024 - 10 Convention Staff from 10 am - 6 pm
+              09/15/2024 - 8 Convention Staff from 8 am - 4 pm
+              09/16/2024 - 15 Convention Staff from 2 pm - 10 pm"></textarea>
             <div id="eventDetailsError" class="error-message"></div>
           `;
         }
@@ -114,42 +128,69 @@ const MultiStepForm: React.FC = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
     setIsSubmitting(true);
 
-    const payload: any = {
-      ...formData,
-      selectedPositions,
-      eventDates: selectedDates.map(
-        (d) => `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`
-      ).join(', '),
+    // Get staff requirements based on whether it's a multi-day or single-day event
+    const staffRequirements = selectedDates.length > 1
+      ? (document.getElementById('eventDetails') as HTMLTextAreaElement)?.value
+      : Array.from(document.querySelectorAll('#staffRequirements .staff-requirement'))
+          .map(div => {
+            const position = (div as HTMLElement).querySelector('p')?.textContent || '';
+            const count = (div.querySelector(`[name="${position}-count"]`) as HTMLInputElement)?.value;
+            const hours = (div.querySelector(`[name="${position}-hours"]`) as HTMLInputElement)?.value;
+            return {
+              position,
+              count: parseInt(count),
+              hours: parseInt(hours)
+            };
+          });
+
+    // Format dates in mm-dd-yyyy format
+    const formattedDates = selectedDates.map(date => {
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const day = date.getDate().toString().padStart(2, '0');
+      const year = date.getFullYear();
+      return `${month}-${day}-${year}`;
+    });
+
+    const payload = {
+      first_name: formData.firstName,
+      last_name: formData.lastName,
+      email: formData.email,
+      phone_number: formData.phoneNumber,
+      type_of_staff: selectedPositions, // Using selectedPositions directly instead of formData.selectedPositions
+      type_of_event: formData.eventType,
+      event_location: formData.location,
+      event_date: formattedDates, // Array of formatted dates
+      staff_requirements: staffRequirements, // Will be either array of requirements or text for multi-day
+      created_at: new Date().toISOString()
     };
 
-    fetch('ENTER SCRIPT URL HERE', {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    })
-      .then(() => {
-        console.log('Form submitted successfully');
-        setShowThankYou(true);
-        setTimeout(() => {
-          resetForm();
-          setShowThankYou(false);
-        }, 3000);
-      })
-      .catch((error) => {
-        console.error('Error:', error);
-        alert('An error occurred while submitting the form.');
-      })
-      .finally(() => {
-        setIsSubmitting(false);
-      });
+    try {
+      const { error } = await supabase
+        .from('Requests')
+        .insert([payload]);
+
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+
+      console.log('Form submitted successfully');
+      setShowThankYou(true);
+      setTimeout(() => {
+        resetForm();
+        setShowThankYou(false);
+      }, 3000);
+    } catch (error) {
+      console.error('Error:', error);
+      alert('An error occurred while submitting the form.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const resetForm = () => {
@@ -173,13 +214,14 @@ const MultiStepForm: React.FC = () => {
               <h2>What type of staff are you looking for?</h2>
               <p className="select-instruction">Select all that apply:</p>
               <div className="position-grid">
-                {["Brand Ambassadors", "Bartenders", "Production Assistants", "Catering Staff", "Model Staff", "Registration Staff", "Convention Staff", "Line Cooks"].map((position) => (
+                {positions.map((position) => (
                   <div
                     key={position}
                     className={`position-item ${selectedPositions.includes(position) ? 'selected' : ''}`}
                     onClick={() => handleSelectPosition(position)}
+                    data-position={position}
                   >
-                    <img src={`/images/${position.replaceAll(' ', '_')}.jpg`} alt={position} />
+                    <img src={positionImages[position]} alt={position} />
                     <div className="overlay">{position}</div>
                   </div>
                 ))}
