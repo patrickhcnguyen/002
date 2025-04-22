@@ -4,6 +4,10 @@ import "react-datepicker/dist/react-datepicker.css";
 import './styles.css'; 
 import supabase from '@/lib/supabaseClient'; 
 import { formatDate } from 'date-fns';
+import MapboxGeocoder from '@mapbox/mapbox-gl-geocoder';
+import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
+import 'mapbox-gl/dist/mapbox-gl.css';
+
 
 interface StaffRequirement {
   date: string;
@@ -23,6 +27,8 @@ interface StaffInput {
 interface DateStaffInputs {
   [date: string]: Record<string, StaffInput>;
 }
+
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 
 const MultiStepForm: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -70,6 +76,39 @@ const MultiStepForm: React.FC = () => {
       }
     }
   }, [currentStep, selectedDates, selectedPositions]);
+
+  useEffect(() => {
+    if (currentStep === 2) {
+      const geocoder = new MapboxGeocoder({
+        accessToken: MAPBOX_TOKEN || '',
+        types: 'address,place',
+        placeholder: 'Enter event location',
+        marker: false
+      });
+
+      const container = document.getElementById('geocoder-container');
+      if (container) {
+        container.innerHTML = '';
+        geocoder.addTo('#geocoder-container');
+      }
+
+      geocoder.on('result', (e) => {
+        const result = e.result;
+        setFormData(prev => ({
+          ...prev,
+          location: result.place_name,
+          coordinates: result.geometry.coordinates
+        }));
+      });
+
+      return () => {
+        const container = document.getElementById('geocoder-container');
+        if (container) {
+          container.innerHTML = '';
+        }
+      };
+    }
+  }, [currentStep]);
 
   const handleSelectPosition = (position: string) => {
     setSelectedPositions((prev) =>
@@ -377,6 +416,10 @@ const MultiStepForm: React.FC = () => {
                   className="date-picker-input"
                   calendarClassName="date-picker-calendar"
                   wrapperClassName="date-picker-wrapper"
+                  popperProps={{
+                    strategy: "fixed"
+                  }}
+                  popperPlacement="bottom-start"
                 />
               </div>
               <label>What kind of event is this?</label>
@@ -388,12 +431,10 @@ const MultiStepForm: React.FC = () => {
                 placeholder="e.g., Wedding, Corporate Event, Trade Show"
               />
               <label>Where is your event located?</label>
-              <input
-                type="text"
-                name="location"
-                value={formData.location || ''}
-                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                placeholder="Enter event location"
+              <div 
+                id="geocoder-container" 
+                className="geocoder-container"
+                style={{ position: 'relative' }}
               />
               <div className="button-group">
                 <button type="button" onClick={() => prevStep(2)}>Back</button>
