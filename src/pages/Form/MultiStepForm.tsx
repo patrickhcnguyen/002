@@ -3,6 +3,7 @@ import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import './styles.css'; 
 import supabase from '@/lib/supabaseClient'; 
+import { formatDate } from 'date-fns';
 
 interface StaffRequirement {
   date: string;
@@ -19,6 +20,10 @@ interface StaffInput {
   endTime: string;
 }
 
+interface DateStaffInputs {
+  [date: string]: Record<string, StaffInput>;
+}
+
 const MultiStepForm: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedPositions, setSelectedPositions] = useState<string[]>([]);
@@ -28,7 +33,7 @@ const MultiStepForm: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const staffRequirementsRef = useRef<HTMLDivElement>(null);
   const [showThankYou, setShowThankYou] = useState(false);
-  const [staffInputs, setStaffInputs] = useState<Record<string, StaffInput>>({});
+  const [staffInputs, setStaffInputs] = useState<DateStaffInputs>({});
 
   const positionImages = {
     "Brand Ambassadors": "https://images.squarespace-cdn.com/content/65d3c0aefe9b024b40b6fa20/f1f125a8-db1a-40ad-aa6c-0460c4e521f5/F864B7BE-D5ED-4F06-8D41-991BDBE0D5FD.jpg",
@@ -44,7 +49,6 @@ const MultiStepForm: React.FC = () => {
 
   useEffect(() => {
     if (currentStep === 3) {
-      // should fix this to be multiple headers/rows instead of one text box 
       if (selectedDates.length > 1) {
         if (staffRequirementsRef.current) {
           staffRequirementsRef.current.innerHTML = `
@@ -157,59 +161,75 @@ const MultiStepForm: React.FC = () => {
   };
 
   const renderStaffRequirements = () => {
-    return selectedPositions.map((position) => {
-      const safePosition = position.replace(/\s+/g, '-');
+    return selectedDates.map(date => {
+      const displayDate = formatDate(date, 'MMMM d, yyyy');
+      const formattedDate = formatDate(date, 'yyyy-MM-dd');
       return (
-        <div key={position} className="staff-requirement mb-6">
-          <p className="font-medium mb-2">{position}</p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label htmlFor={`${safePosition}-count`}>Number of Staff:</label>
-              <input 
-                type="number" 
-                id={`${safePosition}-count`}
-                value={staffInputs[position]?.count || ''}
-                onChange={(e) => handleStaffInputChange(position, 'count', e.target.value)}
-                className="w-full p-2 border rounded-md"
-                min="1"
-                required 
-              />
-            </div>
-            <div>
-              <label htmlFor={`${safePosition}-start`}>Start Time:</label>
-              <input 
-                type="time" 
-                id={`${safePosition}-start`}
-                value={staffInputs[position]?.startTime || ''}
-                onChange={(e) => handleStaffInputChange(position, 'startTime', e.target.value)}
-                className="w-full p-2 border rounded-md"
-                required 
-              />
-            </div>
-            <div>
-              <label htmlFor={`${safePosition}-end`}>End Time:</label>
-              <input 
-                type="time" 
-                id={`${safePosition}-end`}
-                value={staffInputs[position]?.endTime || ''}
-                onChange={(e) => handleStaffInputChange(position, 'endTime', e.target.value)}
-                className="w-full p-2 border rounded-md"
-                required 
-              />
-            </div>
+        <div key={formattedDate} className="mb-8">
+          <h3 className="text-lg font-semibold mb-4">
+            {displayDate}
+          </h3>
+          <div className="space-y-6">
+            {selectedPositions.map((position) => {
+              const safePosition = position.replace(/\s+/g, '-');
+              return (
+                <div key={`${formattedDate}-${position}`} className="staff-requirement mb-6">
+                  <p className="font-medium mb-2">{position}</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label htmlFor={`${formattedDate}-${safePosition}-count`}>Number of Staff:</label>
+                      <input 
+                        type="number" 
+                        id={`${formattedDate}-${safePosition}-count`}
+                        value={staffInputs[formattedDate]?.[position]?.count || ''}
+                        onChange={(e) => handleStaffInputChange(formattedDate, position, 'count', e.target.value)}
+                        className="w-full p-2 border rounded-md"
+                        min="1"
+                        required 
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor={`${formattedDate}-${safePosition}-start`}>Start Time:</label>
+                      <input 
+                        type="time" 
+                        id={`${formattedDate}-${safePosition}-start`}
+                        value={staffInputs[formattedDate]?.[position]?.startTime || ''}
+                        onChange={(e) => handleStaffInputChange(formattedDate, position, 'startTime', e.target.value)}
+                        className="w-full p-2 border rounded-md"
+                        required 
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor={`${formattedDate}-${safePosition}-end`}>End Time:</label>
+                      <input 
+                        type="time" 
+                        id={`${formattedDate}-${safePosition}-end`}
+                        value={staffInputs[formattedDate]?.[position]?.endTime || ''}
+                        onChange={(e) => handleStaffInputChange(formattedDate, position, 'endTime', e.target.value)}
+                        className="w-full p-2 border rounded-md"
+                        required 
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       );
     });
   };
 
-  const handleStaffInputChange = (position: string, field: keyof StaffInput, value: string) => {
+  const handleStaffInputChange = (date: string, position: string, field: keyof StaffInput, value: string) => {
     setStaffInputs(prev => ({
       ...prev,
-      [position]: {
-        ...prev[position],
-        position,
-        [field]: value
+      [date]: {
+        ...prev[date],
+        [position]: {
+          ...prev[date]?.[position],
+          position,
+          [field]: value
+        }
       }
     }));
   };
@@ -218,27 +238,25 @@ const MultiStepForm: React.FC = () => {
     e.preventDefault();
     if (isSubmitting) return;
     setIsSubmitting(true);
-
-    const formattedDate = selectedDates[0] ? 
-      selectedDates[0].toISOString().split('T')[0] : 
-      null;
-
-    const staffRequirements: StaffRequirement[] = selectedPositions
-      .map(position => {
-        const input = staffInputs[position];
-        if (!input) return null;
-        
-        return {
-          date: formattedDate || '',
-          position: position,
-          count: parseInt(input.count || '0'),
-          startTime: input.startTime,
-          endTime: input.endTime
-        };
-      })
-      .filter((req): req is StaffRequirement => 
-        req !== null && req.count > 0 && req.startTime !== '' && req.endTime !== ''
-      );
+    const staffRequirements: StaffRequirement[] = selectedDates.flatMap(date => {
+      const formattedDate = formatDate(date, 'yyyy-MM-dd');
+      return selectedPositions
+        .map(position => {
+          const input = staffInputs[formattedDate]?.[position];
+          if (!input) return null;
+          
+          return {
+            date: formattedDate,
+            position: position,
+            count: parseInt(input.count || '0'),
+            startTime: input.startTime,
+            endTime: input.endTime
+          };
+        })
+        .filter((req): req is StaffRequirement => 
+          req !== null && req.count > 0 && req.startTime !== '' && req.endTime !== ''
+        );
+    });
 
     console.log('Staff Requirements:', staffRequirements);
 
@@ -250,16 +268,11 @@ const MultiStepForm: React.FC = () => {
       type_of_staff: selectedPositions,
       type_of_event: formData.eventType,
       event_location: formData.location,
-      event_date: formattedDate,
+      event_date: selectedDates[0] ? selectedDates[0].toISOString().split('T')[0] : null,
       staff_requirements: staffRequirements,
       created_at: new Date().toISOString()
     };
-
-    if (!formattedDate) {
-      alert('Please select an event date');
-      setIsSubmitting(false);
-      return;
-    }
+    console.log(payload);
 
     if (staffRequirements.length === 0) {
       alert('Please add staff requirements');
@@ -295,6 +308,7 @@ const MultiStepForm: React.FC = () => {
     setSelectedPositions([]);
     setFormData({});
     setSelectedDates([]);
+    setStaffInputs({});
     setCurrentStep(1);
   };
 
