@@ -24,6 +24,8 @@ body, html {
   
   .form-step {
     display: none;
+    position: relative;
+    z-index: 1;
   }
   
   .form-step.active {
@@ -381,7 +383,8 @@ body, html {
   }
   
   .date-picker-wrapper {
-    width: 100%;
+    position: relative;
+    z-index: 1000;
   }
   
   .react-datepicker-wrapper {
@@ -495,5 +498,67 @@ body, html {
       height: 32px !important;
       line-height: 32px !important;
     }
+  }
+  
+  /* Reset and contain the geocoder container */
+  .geocoder-container {
+    width: 100%;
+    margin-bottom: 1rem;
+    position: relative;
+    z-index: 999;
+  }
+  
+  /* Reset Mapbox container styles */
+  .mapboxgl-ctrl-geocoder {
+    min-width: 100% !important;
+    width: 100% !important;
+    max-width: none !important;
+    box-shadow: none !important;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.375rem;
+    font-family: inherit;
+    background: #fff;
+  }
+  
+  /* Fix input padding to account for icon */
+  .mapboxgl-ctrl-geocoder--input {
+    height: 42px !important;
+    padding: 0.5rem 0.5rem 0.5rem 2.5rem !important; /* Increased left padding for icon */
+    border: none !important;
+    color: inherit;
+    font-size: inherit;
+    background: none !important; /* Remove default background */
+    width: 100% !important;
+    margin: 0 !important;
+  }
+  
+  /* Position the search icon correctly */
+  .mapboxgl-ctrl-geocoder--icon {
+    top: 50% !important;
+    left: 0.75rem !important;
+    transform: translateY(-50%);
+    position: absolute !important;
+  }
+  
+  .mapboxgl-ctrl-geocoder--icon-search {
+    position: absolute;
+    top: 50%;
+    left: 0.75rem;
+    transform: translateY(-50%);
+  }
+  
+  /* Style suggestions dropdown */
+  .mapboxgl-ctrl-geocoder--list {
+    position: absolute;
+    width: 100%;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.375rem;
+    margin-top: 4px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  }
+  
+  .react-datepicker-popper {
+    z-index: 1000 !important;
   }
   

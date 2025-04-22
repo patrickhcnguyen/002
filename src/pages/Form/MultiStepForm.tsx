@@ -4,6 +4,11 @@ import "react-datepicker/dist/react-datepicker.css";
 import './styles.css'; 
 import supabase from '@/lib/supabaseClient'; 
 import { formatDate } from 'date-fns';
+import MapboxGeocoder from '@mapbox/mapbox-gl-geocoder';
+import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
+import 'mapbox-gl/dist/mapbox-gl.css';
+import { geocodeAndFindNearestOffice } from './locationService';
+
 
 interface StaffRequirement {
   date: string;
@@ -23,6 +28,8 @@ interface StaffInput {
 interface DateStaffInputs {
   [date: string]: Record<string, StaffInput>;
 }
+
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 
 const MultiStepForm: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -70,6 +77,45 @@ const MultiStepForm: React.FC = () => {
       }
     }
   }, [currentStep, selectedDates, selectedPositions]);
+
+  useEffect(() => {
+    if (currentStep === 2) {
+      const geocoder = new MapboxGeocoder({
+        accessToken: MAPBOX_TOKEN || '',
+        types: 'address,place',
+        placeholder: 'Enter event location',
+        marker: false
+      });
+
+      const container = document.getElementById('geocoder-container');
+      if (container) {
+        container.innerHTML = '';
+        geocoder.addTo('#geocoder-container');
+      }
+
+      geocoder.on('result', async (e) => {
+        try {
+          const location = await geocodeAndFindNearestOffice(e.result.place_name);
+          setFormData(prev => ({
+            ...prev,
+            location: location.placeName,
+            coordinates: location.coordinates,
+            nearestOffice: location.nearestOffice
+          }));
+        } catch (error) {
+          console.error('Error processing location:', error);
+          alert('Error processing location. Please try again.');
+        }
+      });
+
+      return () => {
+        const container = document.getElementById('geocoder-container');
+        if (container) {
+          container.innerHTML = '';
+        }
+      };
+    }
+  }, [currentStep]);
 
   const handleSelectPosition = (position: string) => {
     setSelectedPositions((prev) =>
@@ -238,6 +284,7 @@ const MultiStepForm: React.FC = () => {
     e.preventDefault();
     if (isSubmitting) return;
     setIsSubmitting(true);
+
     const staffRequirements: StaffRequirement[] = selectedDates.flatMap(date => {
       const formattedDate = formatDate(date, 'yyyy-MM-dd');
       return selectedPositions
@@ -258,8 +305,6 @@ const MultiStepForm: React.FC = () => {
         );
     });
 
-    console.log('Staff Requirements:', staffRequirements);
-
     const payload = {
       first_name: formData.firstName,
       last_name: formData.lastName,
@@ -268,26 +313,26 @@ const MultiStepForm: React.FC = () => {
       type_of_staff: selectedPositions,
       type_of_event: formData.eventType,
       event_location: formData.location,
+      closest_branch: formData.nearestOffice?.name,
       event_date: selectedDates[0] ? selectedDates[0].toISOString().split('T')[0] : null,
       staff_requirements: staffRequirements,
       created_at: new Date().toISOString()
     };
-    console.log(payload);
-
-    if (staffRequirements.length === 0) {
-      alert('Please add staff requirements');
-      setIsSubmitting(false);
-      return;
-    }
 
     try {
-      const { error } = await supabase
-        .from('Requests')
-        .insert([payload]);
+      const response = await fetch('https://huydudorftiektexxpei.supabase.co/functions/v1/createRequestWithInvoice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_BEARER_TOKEN}`
+        },
+        body: JSON.stringify(payload)
+      });
 
-      if (error) {
-        console.error('Supabase error:', error);
-        throw error;
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error?.message || 'An error occurred');
       }
 
       console.log('Form submitted successfully');
@@ -377,6 +422,10 @@ const MultiStepForm: React.FC = () => {
                   className="date-picker-input"
                   calendarClassName="date-picker-calendar"
                   wrapperClassName="date-picker-wrapper"
+                  popperProps={{
+                    strategy: "fixed"
+                  }}
+                  popperPlacement="bottom-start"
                 />
               </div>
               <label>What kind of event is this?</label>
@@ -388,12 +437,10 @@ const MultiStepForm: React.FC = () => {
                 placeholder="e.g., Wedding, Corporate Event, Trade Show"
               />
               <label>Where is your event located?</label>
-              <input
-                type="text"
-                name="location"
-                value={formData.location || ''}
-                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                placeholder="Enter event location"
+              <div 
+                id="geocoder-container" 
+                className="geocoder-container"
+                style={{ position: 'relative' }}
               />
               <div className="button-group">
                 <button type="button" onClick={() => prevStep(2)}>Back</button>
