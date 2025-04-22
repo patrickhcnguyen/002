@@ -1,12 +1,17 @@
 import { createClient } from "@supabase/supabase-js";
 
-if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
-    throw new Error("Missing Supabase env variables");
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error(
+        "Missing environment variables: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be defined"
+    );
 }
 
 const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_ANON_KEY,
+    supabaseUrl,
+    supabaseAnonKey,
     {
         db: {
             schema: "public"
