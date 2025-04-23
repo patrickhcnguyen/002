@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { Rocket } from "lucide-react";
 import { LogoDisplay } from "@/components/LogoDisplay";
+import SignUpForm from "@/pages/Auth/signUp";
 
 export function Hero() {
   return (
@@ -17,6 +18,9 @@ export function Hero() {
               <Button variant="outline" className="bg-accent text-white hover:bg-accent/90">
                 Request Staff
               </Button>
+            </Link>
+            <Link to="/signup">
+              <Button variant="outline">Sign Up</Button>
             </Link>
             <Link to="/dashboard">
               <Button variant="outline">Sign In</Button>
