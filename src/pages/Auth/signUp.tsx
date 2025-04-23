@@ -1,5 +1,4 @@
 // signup form should have a basic form with name, email, password, confirm password, and a submit button
-import React from 'react';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
