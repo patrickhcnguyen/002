@@ -1,4 +1,7 @@
 
+// main invoice page, calls the components
+// for now, lets just create a function that displays the invoices based on the admin's branch
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,29 +12,18 @@ import { useNavigate } from "react-router-dom";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { useEffect } from "react";
 
+// invoicing imports
+import { InvoiceTable } from "@/features/invoicing/components/InvoiceTable";
+
 export interface Invoice {
   id: string;
-  invoiceNumber: string;
-  companyName: string;
-  clientName: string;
-  clientCompany: string;
-  clientPhone: string;
-  clientEmail: string;
-  shipTo: string;
-  date: string;
-  paymentTerms: string;
-  dueDate: string;
-  poNumber: string;
-  branchId?: string;
-  notes: string;
-  terms: string;
+  request_id: string;
+  branch: string;
+  client_name: string;
+  due_date: string;
   amount: number;
+  balance: number
   status: 'unpaid' | 'partially_paid' | 'paid';
-  items: InvoiceItem[];
-  amountPaid?: number;
-  transactionFee?: number;
-  balanceDue?: number;
-  documentType: string;
 }
 
 export interface InvoiceItem {
@@ -95,13 +87,34 @@ export default function Invoicing() {
               Create Invoice
             </Button>
           </div>
-          <InvoiceList 
-            onEditInvoice={handleEditInvoice}
-            onViewInvoice={handleViewInvoice} 
-            searchQuery={searchQuery} 
-          />
+          <InvoiceTable />
         </div>
       </div>
     </SidebarProvider>
   );
 }
+
+/**
+ * these are columns that we need to add to the invoice table, these are columns that the admin will manually add to the invoice
+  invoiceNumber: string;
+  companyName: string;
+  clientName: string;
+  clientCompany: string;
+  clientPhone: string;
+  clientEmail: string;
+  shipTo: string;
+  date: string;
+  paymentTerms: string;
+  dueDate: string;
+  poNumber: string;
+  branchId?: string;
+  notes: string;
+  terms: string;
+  amount: number;
+  status: 'unpaid' | 'partially_paid' | 'paid';
+  items: InvoiceItem[];
+  amountPaid?: number;
+  transactionFee?: number;
+  balanceDue?: number;
+  documentType: string;
+ */
