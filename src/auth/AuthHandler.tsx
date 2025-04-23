@@ -37,7 +37,7 @@ export const signUp = async ({ email, password, username, branch }: AdminSignUpD
 
 export const signIn = async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email, 
         password
     });
     if (error) throw error;
