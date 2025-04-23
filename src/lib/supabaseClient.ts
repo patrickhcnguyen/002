@@ -16,6 +16,12 @@ const supabase = createClient(
         db: {
             schema: "public"
         },
+        auth: {
+            autoRefreshToken: true,
+            persistSession: true,
+            detectSessionInUrl: true,
+            flowType: 'pkce'
+        }
     }
 );
 
