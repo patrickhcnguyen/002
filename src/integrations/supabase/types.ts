@@ -1177,6 +1177,35 @@ export type Database = {
         }
         Relationships: []
       }
+      admins: {
+        Row: {
+          id: string
+          email: string
+          username: string
+          branch: string
+        }
+        Insert: {
+          id?: string
+          email: string
+          username: string
+          branch: string
+        }
+        Update: {
+          id?: string
+          email?: string
+          username?: string
+          branch?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admins_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       geography_columns: {
