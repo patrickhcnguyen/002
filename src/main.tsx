@@ -19,6 +19,7 @@ import Login from './pages/Login.tsx';
 import OnboardingForm from './components/OnboardingForm.tsx';
 import MultiStepForm from './pages/Form/MultiStepForm.tsx';
 import { mobileEmployeeRoutes } from './routes/mobileEmployeeRoutes';
+import SignUpForm from './pages/Auth/signUp.tsx';
 import './index.css';
 
 // Create a client
@@ -43,6 +44,10 @@ const router = createBrowserRouter([
       {
         path: "login",
         element: <Login />,
+      },
+      {
+        path: "signup",
+        element: <SignUpForm />,
       },
       {
         path: "dashboard",
