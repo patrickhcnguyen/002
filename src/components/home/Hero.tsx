@@ -22,7 +22,7 @@ export function Hero() {
             <Link to="/signup">
               <Button variant="outline">Sign Up</Button>
             </Link>
-            <Link to="/dashboard">
+            <Link to="/signin">
               <Button variant="outline">Sign In</Button>
             </Link>
           </div>
