@@ -130,6 +130,13 @@ const MultiStepForm: React.FC = () => {
       return;
     }
 
+    if (step === 2) {
+      if (formData.isCompany && !formData.companyName?.trim()) {
+        alert('Please enter your company name.');
+        return;
+      }
+    }
+
     if (step === 3 && !validateStaffRequirements()) {
       return;
     }
@@ -315,7 +322,9 @@ const MultiStepForm: React.FC = () => {
       closest_branch: formData.nearestOffice?.name,
       event_date: selectedDates[0] ? selectedDates[0].toISOString().split('T')[0] : null,
       staff_requirements: staffRequirements,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      is_company: formData.isCompany,
+      company_name: formData.isCompany ? formData.companyName : null,
     };
 
     try {
@@ -391,6 +400,51 @@ const MultiStepForm: React.FC = () => {
           {/* Step 2 */}
           {currentStep === 2 && (
             <div className="form-step active">
+              <h2>Client Information</h2>
+              
+              <div className="mb-8">
+                <h3 className="text-lg font-semibold mb-4">I am requesting staff as a:</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div
+                    className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                      !formData.isCompany 
+                        ? 'border-primary bg-primary/10' 
+                        : 'border-gray-200 hover:border-primary/50'
+                    }`}
+                    onClick={() => setFormData({ ...formData, isCompany: false, companyName: '' })}
+                  >
+                    <h4 className="font-medium mb-2">Individual Client</h4>
+                    <p className="text-sm text-gray-600">Personal or individual event booking</p>
+                  </div>
+                  <div
+                    className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                      formData.isCompany 
+                        ? 'border-primary bg-primary/10' 
+                        : 'border-gray-200 hover:border-primary/50'
+                    }`}
+                    onClick={() => setFormData({ ...formData, isCompany: true })}
+                  >
+                    <h4 className="font-medium mb-2">Company</h4>
+                    <p className="text-sm text-gray-600">Corporate or business event booking</p>
+                  </div>
+                </div>
+              </div>
+              
+              {formData.isCompany && (
+                <div className="mb-8">
+                  <label className="block mb-2">Company Name:</label>
+                  <input
+                    type="text"
+                    name="companyName"
+                    value={formData.companyName || ''}
+                    onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                    className="w-full p-2 border rounded-md"
+                    placeholder="Enter your company name"
+                    required
+                  />
+                </div>
+              )}
+              
               <h2>Event Information</h2>
               <div className="date-picker-container">
                 <label>Event Date(s):</label>
