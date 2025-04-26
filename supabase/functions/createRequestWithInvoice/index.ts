@@ -54,17 +54,22 @@ serve(async (req) => {
         { status: 500 }
       );
     }
-      
 
+    // Create the invoice payload with proper handling of company name
     const invoicePayload = {
       request_id: requestData.id,
       branch: requestData.closest_branch,
       client_name: `${requestData.first_name} ${requestData.last_name}`,
+      client_email: requestData.email,
+      company_name: requestData.company_name,
       due_date: requestData.event_date,
       amount: 500.0,
       balance: 500.0,
       status: "pending",
     };
+
+    // Log the invoice payload before insertion for debugging
+    console.log("Invoice payload:", invoicePayload);
 
     const { data: invoiceData, error: invoiceError } = await supabase
       .from("invoices")
