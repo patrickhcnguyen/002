@@ -37,7 +37,7 @@ export function InvoiceTable() {
 
         const { data: invoicesData, error: invoicesError } = await supabase
           .from('invoices')
-          .select('id, request_id, client_name, due_date, amount, balance, status, branch')
+          .select('id, request_id, client_name, company_name,due_date, amount, balance, status, branch')
           .eq('branch', branch)
           .order('due_date', { ascending: false });
 
@@ -95,7 +95,9 @@ export function InvoiceTable() {
             invoices.map((invoice) => (
               <TableRow key={invoice.id}>
                 <TableCell>{invoice.request_id}</TableCell>
-                <TableCell>{invoice.client_name}</TableCell>
+                <TableCell>
+                  {invoice.company_name ? invoice.company_name : invoice.client_name}
+                </TableCell>
                 <TableCell>{new Date(invoice.due_date).toLocaleDateString()}</TableCell>
                 <TableCell className="text-right">{formatCurrency(invoice.amount)}</TableCell>
                 <TableCell className="text-right">{formatCurrency(invoice.balance)}</TableCell>
