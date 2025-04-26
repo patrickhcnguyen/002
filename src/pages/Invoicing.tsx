@@ -20,6 +20,7 @@ export interface Invoice {
   request_id: string;
   branch: string;
   client_name: string;
+  company_name: string;
   due_date: string;
   amount: number;
   balance: number
@@ -96,25 +97,22 @@ export default function Invoicing() {
 
 /**
  * these are columns that we need to add to the invoice table, these are columns that the admin will manually add to the invoice
-  invoiceNumber: string;
+ * typical due date is up front 
+  in the request, we should let the client specify if its for a personal event or company event 
   companyName: string;
   clientName: string;
-  clientCompany: string;
   clientPhone: string;
   clientEmail: string;
   shipTo: string;
   date: string;
   paymentTerms: string;
-  dueDate: string;
   poNumber: string;
   branchId?: string;
   notes: string;
   terms: string;
-  amount: number;
-  status: 'unpaid' | 'partially_paid' | 'paid';
   items: InvoiceItem[];
   amountPaid?: number;
   transactionFee?: number;
   balanceDue?: number;
-  documentType: string;
+  documentType: string; // standardize to pdf 
  */
