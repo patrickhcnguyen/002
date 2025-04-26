@@ -1,10 +1,23 @@
 import { serve } from "https://deno.land/std@0.192.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const temporaryCalculator = (amount: number) => {
-  const transactionFee = amount * 0.029 + 0.30;
-  return transactionFee;
-}
+// Calculate transaction fee (2.9% + 30 cents)
+const calculateTransactionFee = (amount: number) => {
+  return amount * 0.029 + 0.30;
+};
+
+// Calculate total and balance
+const calculateInvoiceAmounts = (baseAmount: number) => {
+  const fee = calculateTransactionFee(baseAmount);
+  const total = baseAmount + fee;
+  
+  return {
+    amount: baseAmount,
+    transaction_fee: fee, 
+    total: total,
+    balance: total // Initially, balance = total (nothing paid yet)
+  };
+};
 
 serve(async (req) => {
   // Add CORS headers
@@ -60,7 +73,13 @@ serve(async (req) => {
       );
     }
 
-    // Create the invoice payload with proper handling of company name
+    // Set the base amount for the invoice (can be calculated based on requirements)
+    const baseAmount = 500;
+    
+    // Calculate all financial amounts
+    const financials = calculateInvoiceAmounts(baseAmount);
+
+    // Create the invoice payload with automatic calculations
     const invoicePayload = {
       request_id: requestData.id,
       branch: requestData.closest_branch,
@@ -68,17 +87,17 @@ serve(async (req) => {
       client_email: requestData.email,
       company_name: requestData.company_name,
       due_date: requestData.event_date,
-      amount: 500 + temporaryCalculator(500),
-      balance: 500 + temporaryCalculator(500),
+      amount: financials.amount,
+      balance: financials.balance,
       amount_paid: 0.0,
       notes: '',
       ship_to: '',
       status: "pending",
-      transaction_fee: temporaryCalculator(500), 
+      transaction_fee: financials.transaction_fee,
       payment_terms: "Due on receipt",
     };  
 
-    // Log the invoice payload before insertion for debugging
+    // Log the invoice payload before insertion
     console.log("Invoice payload:", invoicePayload);
 
     const { data: invoiceData, error: invoiceError } = await supabase
@@ -103,7 +122,6 @@ serve(async (req) => {
       );
     }
     
-
     return new Response(JSON.stringify({ data: invoiceData }), {
       status: 200,
       headers: {
