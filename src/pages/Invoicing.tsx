@@ -23,7 +23,7 @@ export interface Invoice {
   company_name: string | null;
   due_date: string;
   amount: number;
-  balance: number;
+  balance: number; 
   status: 'unpaid' | 'partially_paid' | 'paid' | 'pending';
   payment_terms: string | null;
   notes: string | null;
