@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom';
 import { AppSidebar } from '@/components/layout/AppSidebar';
 import { useSession } from '@supabase/auth-helpers-react';
 import { SidebarProvider } from '@/components/ui/sidebar';
+import { InvoiceCard } from '@/features/invoicing/components/InvoiceCard';
 
 function App() {
   const session = useSession();
