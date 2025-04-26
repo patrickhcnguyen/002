@@ -23,6 +23,7 @@ export function InvoiceCard() {
   const [invoice, setInvoice] = useState<Invoice>(location.state?.invoice as Invoice);
   const [editMode, setEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   if (!invoice) {
     return (
@@ -90,6 +91,56 @@ export function InvoiceCard() {
     }
   };
 
+  const handleSendEmail = async () => {
+    if (!invoice.client_email) {
+      toast({
+        variant: "destructive",
+        title: "Missing Email",
+        description: "This invoice doesn't have a client email address."
+      });
+      return;
+    }
+
+    setIsSendingEmail(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('You must be logged in to send emails');
+      }
+
+      const response = await fetch('https://huydudorftiektexxpei.supabase.co/functions/v1/sendInvoiceEmail', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ 
+          invoiceId: invoice.id 
+        })
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send email');
+      }
+
+      toast({
+        title: "Email Sent",
+        description: `Invoice has been sent to ${invoice.client_email}`
+      });
+    } catch (error) {
+      console.error('Error sending email:', error);
+      toast({
+        variant: "destructive",
+        title: "Failed to Send Email",
+        description: error.message || "An error occurred while sending the email."
+      });
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
   return (
     <div className="container mx-auto py-8 max-w-4xl">
       <div className="flex items-center mb-6">
@@ -138,13 +189,19 @@ export function InvoiceCard() {
                 <Printer className="mr-2 h-4 w-4" />
                 Print
               </Button>
-              <Button variant="outline" size="sm">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleSendEmail}
+                disabled={isSendingEmail}
+              >
                 <Mail className="mr-2 h-4 w-4" />
-                Email
+                {isSendingEmail ? "Sending..." : "Email"}
               </Button>
               <Button variant="outline" size="sm">
                 <Share className="mr-2 h-4 w-4" />
                 Share
+                {/* TODO: Add share functionality with maybe text or phonenumber idk*/}
               </Button>
             </>
           )}
