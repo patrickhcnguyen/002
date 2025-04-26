@@ -20,6 +20,7 @@ import MultiStepForm from './pages/Form/MultiStepForm.tsx';
 import { mobileEmployeeRoutes } from './routes/mobileEmployeeRoutes';
 import SignUpForm from './pages/Auth/signUp.tsx';
 import SignInForm from './pages/Auth/signIn.tsx';
+import { InvoiceCard } from './features/invoicing/components/InvoiceCard.tsx';
 import './index.css';
 import supabase from "@/lib/supabaseClient";
 
@@ -79,6 +80,10 @@ const router = createBrowserRouter([
       {
         path: "invoicing/view",
         element: <ViewInvoice />,
+      },
+      {
+        path: "invoicing/:id",
+        element: <InvoiceCard />,
       },
       {
         path: "recruit",
