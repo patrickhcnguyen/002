@@ -1,4 +1,3 @@
-
 // main invoice page, calls the components
 // for now, lets just create a function that displays the invoices based on the admin's branch
 
@@ -20,11 +19,18 @@ export interface Invoice {
   request_id: string;
   branch: string;
   client_name: string;
-  company_name: string;
+  client_email: string;
+  company_name: string | null;
   due_date: string;
   amount: number;
-  balance: number
-  status: 'unpaid' | 'partially_paid' | 'paid';
+  balance: number;
+  status: 'unpaid' | 'partially_paid' | 'paid' | 'pending';
+  payment_terms: string | null;
+  notes: string | null;
+  ship_to: string | null;
+  po_number: string | null;
+  amount_paid: number | null;
+  transaction_fee: number | null;
 }
 
 export interface InvoiceItem {
