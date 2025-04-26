@@ -1,0 +1,182 @@
+// supabase/functions/send-invoice-email/index.ts
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+// This ensures CORS is handled properly
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS'
+};
+
+// Format currency
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(amount);
+};
+
+// Format date
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+};
+
+serve(async (req) => {
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  try {
+    const body = await req.json();
+    const { invoiceId } = body;
+    
+    // Connect to Supabase with service role key
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+    
+    // Get invoice data
+    const { data: invoice, error } = await supabase
+      .from('invoices')
+      .select('*')
+      .eq('id', invoiceId)
+      .single();
+      
+    if (error) throw error;
+    
+    // Call Mailgun
+    const formData = new FormData();
+    formData.append('from', 'Evershift Invoicing <invoicing@evershift.co>');
+    formData.append('to', invoice.client_email);
+    formData.append('subject', `Invoice #${invoice.request_id} from Evershift`);
+    formData.append('html', generateEmailHtml(invoice));
+    
+    // Use the sandbox domain you provided
+    const mailgunDomain = Deno.env.get('MAILGUN_DOMAIN') || '';
+    
+    const mailgunResponse = await fetch(
+      `https://api.mailgun.net/v3/${mailgunDomain}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${btoa(`api:${Deno.env.get('MAILGUN_API_KEY')}`)}`
+        },
+        body: formData
+      }
+    );
+    
+    if (!mailgunResponse.ok) {
+      throw new Error(`Mailgun error: ${await mailgunResponse.text()}`);
+    }
+    
+    return new Response(
+      JSON.stringify({ success: true }),
+      { 
+        headers: { 
+          'Content-Type': 'application/json',
+          ...corsHeaders
+        } 
+      }
+    );
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { 
+        status: 500,
+        headers: { 
+          'Content-Type': 'application/json',
+          ...corsHeaders
+        } 
+      }
+    );
+  }
+});
+
+function generateEmailHtml(invoice) {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { text-align: center; padding-bottom: 20px; border-bottom: 1px solid #eee; }
+        .invoice-details { margin: 20px 0; }
+        .invoice-table { width: 100%; border-collapse: collapse; }
+        .invoice-table th, .invoice-table td { padding: 10px; text-align: left; border-bottom: 1px solid #eee; }
+        .invoice-table th { background-color: #f8f8f8; }
+        .amount { text-align: right; }
+        .total { font-weight: bold; }
+        .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #777; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Invoice from Evershift</h1>
+          <p>Invoice #${invoice.request_id}</p>
+        </div>
+        
+        <div class="invoice-details">
+          <p><strong>To:</strong> ${invoice.company_name ? invoice.company_name : invoice.client_name}</p>
+          <p><strong>Date:</strong> ${formatDate(new Date().toISOString())}</p>
+          <p><strong>Due Date:</strong> ${formatDate(invoice.due_date)}</p>
+          <p><strong>Payment Terms:</strong> ${invoice.payment_terms || 'Due on receipt'}</p>
+        </div>
+        
+        <table class="invoice-table">
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th>Quantity</th>
+              <th>Rate</th>
+              <th>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Staffing Services</td>
+              <td>1</td>
+              <td class="amount">${formatCurrency(invoice.amount)}</td>
+              <td class="amount">${formatCurrency(invoice.amount)}</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="3" class="amount">Subtotal:</td>
+              <td class="amount">${formatCurrency(invoice.amount)}</td>
+            </tr>
+            ${invoice.transaction_fee ? `
+            <tr>
+              <td colspan="3" class="amount">Transaction Fee:</td>
+              <td class="amount">${formatCurrency(invoice.transaction_fee)}</td>
+            </tr>` : ''}
+            <tr class="total">
+              <td colspan="3" class="amount">Balance Due:</td>
+              <td class="amount">${formatCurrency(invoice.balance)}</td>
+            </tr>
+          </tfoot>
+        </table>
+        
+        ${invoice.notes ? `
+        <div class="notes">
+          <h3>Notes</h3>
+          <p>${invoice.notes}</p>
+        </div>` : ''}
+        
+        <div class="footer">
+          <p>If you have any questions about this invoice, please contact us at support@evershift.co</p>
+          <p>Thank you for your business!</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
