@@ -1,6 +1,11 @@
 import { serve } from "https://deno.land/std@0.192.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const temporaryCalculator = (amount: number) => {
+  const transactionFee = amount * 0.029 + 0.30;
+  return transactionFee;
+}
+
 serve(async (req) => {
   // Add CORS headers
   const corsHeaders = {
@@ -63,11 +68,15 @@ serve(async (req) => {
       client_email: requestData.email,
       company_name: requestData.company_name,
       due_date: requestData.event_date,
-      amount: 500.0,
-      balance: 500.0,
+      amount: 500 + temporaryCalculator(500),
+      balance: 500 + temporaryCalculator(500),
+      amount_paid: 0.0,
+      notes: '',
+      ship_to: '',
       status: "pending",
+      transaction_fee: temporaryCalculator(500), 
       payment_terms: "Due on receipt",
-    };
+    };  
 
     // Log the invoice payload before insertion for debugging
     console.log("Invoice payload:", invoicePayload);
