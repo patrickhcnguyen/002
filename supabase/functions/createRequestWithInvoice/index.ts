@@ -66,6 +66,7 @@ serve(async (req) => {
       amount: 500.0,
       balance: 500.0,
       status: "pending",
+      payment_terms: "Due on receipt",
     };
 
     // Log the invoice payload before insertion for debugging
