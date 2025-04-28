@@ -108,33 +108,53 @@ export function InvoiceCard() {
         throw new Error('You must be logged in to send emails');
       }
 
-      const response = await fetch('https://huydudorftiektexxpei.supabase.co/functions/v1/sendInvoiceEmail', {
+      // 1. First create Stripe checkout session
+      const stripeResponse = await fetch('https://huydudorftiektexxpei.supabase.co/functions/v1/stripePayments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          amount: invoice.amount,
+          client_email: invoice.client_email,
+          company_name: invoice.company_name || invoice.client_name
+        })
+      });
+
+      if (!stripeResponse.ok) {
+        throw new Error('Failed to create payment link');
+      }
+
+      const { url: paymentUrl } = await stripeResponse.json();
+
+      // 2. Then send email with the payment URL
+      const emailResponse = await fetch('https://huydudorftiektexxpei.supabase.co/functions/v1/sendInvoiceEmail', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({ 
-          invoiceId: invoice.id 
+          invoiceId: invoice.id,
+          paymentUrl // Pass the payment URL to the email function
         })
       });
 
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to send email');
+      if (!emailResponse.ok) {
+        throw new Error('Failed to send email');
       }
 
       toast({
         title: "Email Sent",
-        description: `Invoice has been sent to ${invoice.client_email}`
+        description: `Invoice with payment link has been sent to ${invoice.client_email}`
       });
     } catch (error) {
-      console.error('Error sending email:', error);
+      console.error('Error:', error);
       toast({
         variant: "destructive",
         title: "Failed to Send Email",
-        description: error.message || "An error occurred while sending the email."
+        description: error.message || "An error occurred"
       });
     } finally {
       setIsSendingEmail(false);
