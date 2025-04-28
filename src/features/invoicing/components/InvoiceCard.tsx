@@ -173,7 +173,8 @@ export function InvoiceCard() {
         body: JSON.stringify({
           amount: invoice.amount,
           client_email: invoice.client_email,
-          company_name: invoice.company_name || invoice.client_name
+          company_name: invoice.company_name || invoice.client_name,
+          invoiceId: invoice.id
         })
       });
 
