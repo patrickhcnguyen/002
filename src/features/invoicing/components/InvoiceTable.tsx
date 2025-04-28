@@ -58,7 +58,7 @@ export function InvoiceTable() {
           return;
         }
 
-        setInvoices(invoicesData || []);
+        setInvoices((invoicesData || []) as Invoice[]);
       } catch (error) {
         console.error('Error:', error);
       } finally {
