@@ -1,1 +1,12 @@
 node_modules
+.env
+../.bun.lockb
+bun.lockb
+package-lock.json
+supabase/.branches
+supabase/.env.functions
+supabase/.temp
+supabase/functions/.envs
+supabase/functions/stripePayments/.npmrc
+supabase/functions/stripePayments/deno.json
+supabase/config.toml
