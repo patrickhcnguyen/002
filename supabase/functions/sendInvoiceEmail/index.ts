@@ -1,15 +1,13 @@
-// supabase/functions/send-invoice-email/index.ts
+// supabase/functions/sendInvoiceEmail/index.ts
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// This ensures CORS is handled properly
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS'
 };
 
-// Format currency
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -17,7 +15,6 @@ const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
-// Format date
 const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString('en-US', {
     year: 'numeric',
@@ -27,7 +24,6 @@ const formatDate = (dateString: string) => {
 };
 
 serve(async (req) => {
-  // Handle preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -35,13 +31,11 @@ serve(async (req) => {
   try {
     const { invoiceId, paymentUrl } = await req.json();
     
-    // Connect to Supabase with service role key
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
     
-    // Get invoice data
     const { data: invoice, error } = await supabase
       .from('invoices')
       .select('*')
@@ -50,14 +44,12 @@ serve(async (req) => {
       
     if (error) throw error;
     
-    // Call Mailgun
     const formData = new FormData();
     formData.append('from', 'Evershift Invoicing <invoicing@evershift.co>');
     formData.append('to', invoice.client_email);
     formData.append('subject', `Invoice #${invoice.request_id} from Evershift`);
     formData.append('html', generateEmailHtml(invoice, paymentUrl));
     
-    // Use the sandbox domain you provided
     const mailgunDomain = Deno.env.get('MAILGUN_DOMAIN') || '';
     
     const mailgunResponse = await fetch(
@@ -99,6 +91,18 @@ serve(async (req) => {
 });
 
 function generateEmailHtml(invoice: any, paymentUrl: string) {
+  const staffRows = invoice.staff_requirements_with_rates.map((req: any) => `
+    <tr>
+      <td>
+        <strong>${req.position}</strong><br>
+        <small>${new Date(req.date).toLocaleDateString()} (${req.startTime} - ${req.endTime})</small>
+      </td>
+      <td class="amount">${req.count}</td>
+      <td class="amount">$${req.rate} / hr</td>
+      <td class="amount">$${req.subtotal.toFixed(2)}</td>
+    </tr>
+  `).join('');
+
   return `
     <!DOCTYPE html>
     <html>
@@ -108,55 +112,71 @@ function generateEmailHtml(invoice: any, paymentUrl: string) {
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
         .header { text-align: center; padding-bottom: 20px; border-bottom: 1px solid #eee; }
         .invoice-details { margin: 20px 0; }
-        .invoice-table { width: 100%; border-collapse: collapse; }
+        .invoice-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
         .invoice-table th, .invoice-table td { padding: 10px; text-align: left; border-bottom: 1px solid #eee; }
         .invoice-table th { background-color: #f8f8f8; }
         .amount { text-align: right; }
         .total { font-weight: bold; }
         .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #777; }
+        .payment-button { 
+          display: block; 
+          text-align: center; 
+          padding: 15px; 
+          background: #0070f3; 
+          color: #ffffff !important; /* Force white text */
+          text-decoration: none; 
+          border-radius: 5px; 
+          margin: 20px 0;
+        }
+        /* Ensure link stays white even after being visited */
+        .payment-button:visited,
+        .payment-button:hover,
+        .payment-button:active {
+          color: #ffffff !important;
+        }
       </style>
     </head>
     <body>
       <div class="container">
         <div class="header">
           <h1>Invoice from Evershift</h1>
-          <p>Invoice #${invoice.request_id}</p>
+          <p>Request #${invoice.request_id}</p>
+          <p>Branch: ${invoice.branch}</p>
         </div>
         
         <div class="invoice-details">
           <p><strong>To:</strong> ${invoice.company_name ? invoice.company_name : invoice.client_name}</p>
-          <p><strong>Date:</strong> ${formatDate(new Date().toISOString())}</p>
+          <p><strong>Email:</strong> ${invoice.client_email}</p>
           <p><strong>Due Date:</strong> ${formatDate(invoice.due_date)}</p>
           <p><strong>Payment Terms:</strong> ${invoice.payment_terms || 'Due on receipt'}</p>
+          ${invoice.po_number ? `<p><strong>PO Number:</strong> ${invoice.po_number}</p>` : ''}
         </div>
         
         <table class="invoice-table">
           <thead>
             <tr>
               <th>Description</th>
-              <th>Quantity</th>
-              <th>Rate</th>
-              <th>Amount</th>
+              <th class="amount">Quantity</th>
+              <th class="amount">Rate</th>
+              <th class="amount">Amount</th>
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td>Staffing Services</td>
-              <td>1</td>
-              <td class="amount">${formatCurrency(invoice.amount)}</td>
-              <td class="amount">${formatCurrency(invoice.amount)}</td>
-            </tr>
+            ${staffRows}
           </tbody>
           <tfoot>
             <tr>
               <td colspan="3" class="amount">Subtotal:</td>
+              <td class="amount">${formatCurrency(invoice.subtotal)}</td>
+            </tr>
+            <tr>
+              <td colspan="3" class="amount">Transaction Fee (3.5%):</td>
+              <td class="amount">${formatCurrency(invoice.transaction_fee)}</td>
+            </tr>
+            <tr class="total">
+              <td colspan="3" class="amount">Total Amount:</td>
               <td class="amount">${formatCurrency(invoice.amount)}</td>
             </tr>
-            ${invoice.transaction_fee ? `
-            <tr>
-              <td colspan="3" class="amount">Transaction Fee:</td>
-              <td class="amount">${formatCurrency(invoice.transaction_fee)}</td>
-            </tr>` : ''}
             <tr class="total">
               <td colspan="3" class="amount">Balance Due:</td>
               <td class="amount">${formatCurrency(invoice.balance)}</td>
@@ -170,16 +190,16 @@ function generateEmailHtml(invoice: any, paymentUrl: string) {
           <p>${invoice.notes}</p>
         </div>` : ''}
         
-        <div class="footer">
-          <p>If you have any questions about this invoice, please contact us at support@evershift.co</p>
-          <p>Thank you for your business!</p>
-        </div>
-        
         ${paymentUrl ? `
         <a href="${paymentUrl}" class="payment-button">
           Pay Invoice Now
         </a>
         ` : ''}
+        
+        <div class="footer">
+          <p>If you have any questions about this invoice, please contact us at support@evershift.co</p>
+          <p>Thank you for your business!</p>
+        </div>
       </div>
     </body>
     </html>
