@@ -17,7 +17,7 @@ serve(async (req) => {
   }
 
   try {
-    const { amount, client_email } = await req.json();
+    const { amount, client_email, invoiceId } = await req.json();
     
     const session = await stripe.checkout.sessions.create({
       line_items: [{
@@ -34,6 +34,9 @@ serve(async (req) => {
       customer_email: client_email,
       success_url: 'http://localhost:8080/',
       cancel_url: 'http://localhost:8080/',
+      metadata: {
+        invoice_id: invoiceId
+      }
     });
 
     return new Response(JSON.stringify({ url: session.url }), {
