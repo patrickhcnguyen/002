@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Invoice } from "@/pages/Invoicing";
+import { Invoice, StaffRequirement } from "@/pages/Invoicing";
 import { formatCurrency } from "@/lib/utils";
 import { ArrowLeft, Mail, Printer, Share, Save, Edit, X } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import supabase from "@/lib/supabaseClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -24,6 +24,60 @@ export function InvoiceCard() {
   const [editMode, setEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [staffRequirements, setStaffRequirements] = useState<StaffRequirement[]>([]);
+
+  useEffect(() => {
+    const fetchInvoice = async () => {
+      const initialInvoice = location.state?.invoice as Invoice;
+      if (!initialInvoice?.id) return;
+
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('*, staff_requirements_with_rates')
+        .eq('id', initialInvoice.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching invoice:', error);
+        return;
+      }
+
+      console.log('Fetched invoice data:', data);
+      setInvoice(data);
+    };
+
+    fetchInvoice();
+  }, [location.state]);
+
+  useEffect(() => {
+    console.log('Raw invoice data:', invoice);
+    console.log('Raw staff_requirements_with_rates:', invoice?.staff_requirements_with_rates);
+    
+    if (invoice?.staff_requirements_with_rates) {
+      try {
+        const requirements = typeof invoice.staff_requirements_with_rates === 'string'
+          ? JSON.parse(invoice.staff_requirements_with_rates)
+          : invoice.staff_requirements_with_rates;
+          
+        console.log('Parsed requirements:', requirements);
+        console.log('Requirements type:', typeof requirements);
+        console.log('Is Array?', Array.isArray(requirements));
+        
+        if (Array.isArray(requirements)) {
+          console.log('First requirement:', requirements[0]);
+          console.log('Requirements length:', requirements.length);
+        }
+        
+        setStaffRequirements(requirements);
+      } catch (error) {
+        console.error('Error parsing staff requirements:', error);
+      }
+    }
+  }, [invoice]);
+
+  useEffect(() => {
+    console.log('Current staffRequirements state:', staffRequirements);
+  }, [staffRequirements]);
 
   if (!invoice) {
     return (
@@ -60,6 +114,7 @@ export function InvoiceCard() {
           client_name: invoice.client_name,
           company_name: invoice.company_name,
           client_email: invoice.client_email,
+          staff_requirements_with_rates: invoice.staff_requirements_with_rates,
           ship_to: invoice.ship_to,
           due_date: invoice.due_date,
           payment_terms: paymentTermsValue,
@@ -389,22 +444,63 @@ export function InvoiceCard() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              <TableRow>
-                <TableCell>Staffing Services</TableCell>
-                <TableCell className="text-right">1</TableCell>
-                <TableCell className="text-right">
-                  {editMode ? (
-                    <Input 
-                      type="number" 
-                      value={invoice.amount} 
-                      onChange={e => handleChange('amount', parseFloat(e.target.value))} 
-                      className="w-24 ml-auto"
-                    />
-                  ) : (
-                    formatCurrency(invoice.amount)
-                  )}
+              {staffRequirements.map(requirement => (
+                <TableRow key={`${requirement.position}-${requirement.date}`}>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="font-medium">{requirement.position}</span>
+                      <span className="text-sm text-gray-500">
+                        {new Date(requirement.date).toLocaleDateString()} ({requirement.startTime} - {requirement.endTime})
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {requirement.count}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    ${requirement.rate}/hr
+                  </TableCell>
+                  <TableCell className="text-right">
+                    ${requirement.subtotal.toFixed(2)}
+                  </TableCell>
+                </TableRow>
+              ))}
+
+              {/* Summary rows */}
+              <TableRow className="border-t-2">
+                <TableCell colSpan={3} className="text-right font-medium">
+                  Subtotal
                 </TableCell>
-                <TableCell className="text-right">{formatCurrency(invoice.amount)}</TableCell>
+                <TableCell className="text-right">
+                  ${invoice?.subtotal?.toFixed(2)}
+                </TableCell>
+              </TableRow>
+              
+              <TableRow>
+                <TableCell colSpan={3} className="text-right font-medium">
+                  Transaction Fee (3.5%)
+                </TableCell>
+                <TableCell className="text-right">
+                  ${invoice?.transaction_fee?.toFixed(2)}
+                </TableCell>
+              </TableRow>
+
+              <TableRow className="border-t-2">
+                <TableCell colSpan={3} className="text-right font-medium">
+                  Total Amount
+                </TableCell>
+                <TableCell className="text-right font-bold">
+                  ${invoice?.amount?.toFixed(2)}
+                </TableCell>
+              </TableRow>
+
+              <TableRow>
+                <TableCell colSpan={3} className="text-right font-medium">
+                  Balance Due
+                </TableCell>
+                <TableCell className="text-right font-bold">
+                  ${invoice.balance?.toFixed(2) || '0.00'}
+                </TableCell>
               </TableRow>
             </TableBody>
           </Table>
@@ -439,3 +535,4 @@ export function InvoiceCard() {
     </div>
   );
 }
+
