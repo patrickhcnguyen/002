@@ -33,8 +33,7 @@ serve(async (req) => {
   }
 
   try {
-    const body = await req.json();
-    const { invoiceId } = body;
+    const { invoiceId, paymentUrl } = await req.json();
     
     // Connect to Supabase with service role key
     const supabase = createClient(
@@ -56,7 +55,7 @@ serve(async (req) => {
     formData.append('from', 'Evershift Invoicing <invoicing@evershift.co>');
     formData.append('to', invoice.client_email);
     formData.append('subject', `Invoice #${invoice.request_id} from Evershift`);
-    formData.append('html', generateEmailHtml(invoice));
+    formData.append('html', generateEmailHtml(invoice, paymentUrl));
     
     // Use the sandbox domain you provided
     const mailgunDomain = Deno.env.get('MAILGUN_DOMAIN') || '';
@@ -99,7 +98,7 @@ serve(async (req) => {
   }
 });
 
-function generateEmailHtml(invoice) {
+function generateEmailHtml(invoice: any, paymentUrl: string) {
   return `
     <!DOCTYPE html>
     <html>
@@ -175,6 +174,12 @@ function generateEmailHtml(invoice) {
           <p>If you have any questions about this invoice, please contact us at support@evershift.co</p>
           <p>Thank you for your business!</p>
         </div>
+        
+        ${paymentUrl ? `
+        <a href="${paymentUrl}" class="payment-button">
+          Pay Invoice Now
+        </a>
+        ` : ''}
       </div>
     </body>
     </html>
