@@ -14,6 +14,17 @@ import { useEffect } from "react";
 // invoicing imports
 import { InvoiceTable } from "@/features/invoicing/components/InvoiceTable";
 
+export type StaffRequirement = {
+  date: string;
+  rate: number;
+  count: number;
+  hours: number;
+  endTime: string;
+  position: string;
+  subtotal: number;
+  startTime: string;
+}
+
 export interface Invoice {
   id: string;
   request_id: string;
@@ -22,15 +33,17 @@ export interface Invoice {
   client_email: string;
   company_name: string | null;
   due_date: string;
+  subtotal: number;
   amount: number;
-  balance: number; 
+  balance: number;
   status: 'unpaid' | 'partially_paid' | 'paid' | 'pending';
   payment_terms: string | null;
   notes: string | null;
   ship_to: string | null;
   po_number: string | null;
   amount_paid: number | null;
-  transaction_fee: number | null;
+  transaction_fee: number;
+  staff_requirements_with_rates: StaffRequirement[];
 }
 
 export interface InvoiceItem {
@@ -53,17 +66,6 @@ export default function Invoicing() {
   useEffect(() => {
     console.log('Invoicing page mounted');
   }, []);
-
-  const handleEditInvoice = (invoice: Invoice) => {
-    console.log('Edit invoice clicked:', invoice);
-    setSelectedInvoice(invoice);
-    navigate('/invoicing/create', { state: { invoice } });
-  };
-
-  const handleViewInvoice = (invoice: Invoice) => {
-    console.log('View invoice clicked:', invoice);
-    navigate('/invoicing/view', { state: { invoice } });
-  };
 
   const handleCreateInvoice = () => {
     console.log('Create invoice clicked');
