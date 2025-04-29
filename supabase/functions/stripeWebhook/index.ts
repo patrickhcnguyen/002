@@ -1,10 +1,3 @@
-// Follow this setup guide to integrate the Deno language server with your editor:
-// https://deno.land/manual/getting_started/setup_your_environment
-// This enables autocomplete, go to definition, etc.
-
-// Setup type definitions for built-in Supabase Runtime APIs  
-// stripe webhook to check if payment was successful, then updates the invoice status
-// use ngrok to test on port 54321 https://a84e-2601-204-c282-790-501c-20fd-62a7-5b37.ngrok-free.app
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { Stripe } from "https://esm.sh/stripe@14.0.0"
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
@@ -20,7 +13,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, x-requested-with',
 }
 
-const cryptoProvider = Stripe.createSubtleCryptoProvider()
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -28,6 +20,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log('Webhook received')
+    
     // Get the signature from the headers
     const signature = req.headers.get('stripe-signature')
     if (!signature) {
@@ -35,15 +29,21 @@ serve(async (req) => {
     }
 
     const body = await req.text()
+    console.log('Request body:', body)
 
-    const event = stripe.webhooks.constructEvent(
+    const event = await stripe.webhooks.constructEventAsync(
       body,
       signature,
       Deno.env.get('STRIPE_WEBHOOK_SIGNING_SECRET')!
     )
 
+    console.log('Event type:', event.type)
+    console.log('Event data:', event.data.object)
+
     if (event.type === 'payment_intent.succeeded') {
       const paymentIntent = event.data.object
+      console.log('Payment Intent:', paymentIntent)
+      console.log('Metadata:', paymentIntent.metadata)
 
       // Connect to Supabase
       const supabase = createClient(
@@ -51,21 +51,23 @@ serve(async (req) => {
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
       )
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('invoices')
         .update({ 
           status: 'paid',
-          amount_paid: paymentIntent.amount / 100,
-          payment_date: new Date().toISOString(),
+          amount_paid: (paymentIntent.amount / 100).toFixed(2),
           balance: 0
         })
-        .eq('id', paymentIntent.metadata.invoice_id) 
+        .eq('id', paymentIntent.metadata.invoice_id)
+        .select()
+
+      console.log('Update result:', { data, error })
 
       if (error) {
         throw error
       }
 
-      console.log(`✅ Invoice ${paymentIntent.metadata.invoice_id} marked as paid`)
+      console.log(`Invoice ${paymentIntent.metadata.invoice_id} marked as paid`)
     }
 
     if (event.type === 'payment_intent.failed') {
@@ -87,7 +89,7 @@ serve(async (req) => {
         throw error
       }
 
-      console.log(`❌ Invoice ${paymentIntent.metadata.invoice_id} payment failed`)
+      console.log(`Invoice ${paymentIntent.metadata.invoice_id} payment failed`)
     }
 
     return new Response(JSON.stringify({ received: true }), {
@@ -95,7 +97,7 @@ serve(async (req) => {
     })
 
   } catch (err) {
-    console.error('❌ Error:', err)
+    console.error('Error:', err)
     return new Response(
       JSON.stringify({ error: err.message }),
       { 
@@ -106,14 +108,4 @@ serve(async (req) => {
   }
 })
 
-/* To invoke locally:
 
-  1. Run `supabase start` (see: https://supabase.com/docs/reference/cli/supabase-start)
-  2. Make an HTTP request:
-
-  curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/stripeWebhook' \
-    --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0' \
-    --header 'Content-Type: application/json' \
-    --data '{"name":"Functions"}'
-
-*/
