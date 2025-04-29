@@ -18,8 +18,14 @@ serve(async (req) => {
 
   try {
     const { amount, client_email, invoiceId } = await req.json();
+    console.log('💳 Creating payment for:', { amount, client_email, invoiceId });
     
     const session = await stripe.checkout.sessions.create({
+      payment_intent_data: {
+        metadata: {
+          invoice_id: invoiceId
+        }
+      },
       line_items: [{
         price_data: {
           currency: 'usd',
@@ -34,10 +40,9 @@ serve(async (req) => {
       customer_email: client_email,
       success_url: 'http://localhost:8080/',
       cancel_url: 'http://localhost:8080/',
-      metadata: {
-        invoice_id: invoiceId
-      }
     });
+
+    console.log('✅ Checkout session created:', session.id);
 
     return new Response(JSON.stringify({ url: session.url }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
