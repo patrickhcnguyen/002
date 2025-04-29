@@ -20,7 +20,7 @@ export function InvoiceCard() {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const [invoice, setInvoice] = useState<Invoice>(location.state?.invoice as Invoice);
+  const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
