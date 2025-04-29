@@ -2,9 +2,21 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { Rocket } from "lucide-react";
 import { LogoDisplay } from "@/components/LogoDisplay";
-import SignUpForm from "@/pages/Auth/signUp";
+// import SignUpForm from "@/pages/Auth/signUp";
+import { useSession } from "@supabase/auth-helpers-react";
+
+
 
 export function Hero() {
+  const session = useSession();
+
+  function isAuthenticated() {
+    if (session) {
+      return true;
+    }
+    return false;
+  }
+
   return (
     <>
       <nav className="py-4 px-6 border-b fixed w-full top-0 bg-background/80 backdrop-blur-sm z-50">
@@ -22,9 +34,15 @@ export function Hero() {
             <Link to="/signup">
               <Button variant="outline">Sign Up</Button>
             </Link>
-            <Link to="/signin">
-              <Button variant="outline">Sign In</Button>
-            </Link>
+              {isAuthenticated() ? (
+                <Link to="/dashboard">
+                  <Button variant="outline">Dashboard</Button>
+                </Link>
+              ) : (
+                <Link to="/signin">
+                  <Button variant="outline">Sign In</Button>
+                </Link>
+              )}
           </div>
         </div>
       </nav>
