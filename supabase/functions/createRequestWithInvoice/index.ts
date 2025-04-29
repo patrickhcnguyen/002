@@ -113,6 +113,8 @@ serve(async (req) => {
     
     // subtotal (sum of all staff requirements)
     const subtotal = staffWithRates.reduce((sum, staff) => sum + staff.subtotal, 0);
+
+    const serviceFee = (subtotal * 1.5) - subtotal;
     
     // transaction fee (3.5%)
     const transactionFee = Number((subtotal * 0.035).toFixed(2));
@@ -132,6 +134,7 @@ serve(async (req) => {
         amount: fullAmount,
         balance: fullAmount, // use a stripe webbook to update balance accordingly 
         transaction_fee: transactionFee,
+        service_fee: serviceFee,
         status: 'pending',
         due_date: requestData.event_date,
         staff_requirements_with_rates: staffWithRates,
