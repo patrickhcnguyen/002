@@ -5,7 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 const stripe = new Stripe(Deno.env.get("STRIPE_API_KEY") || "", {
   httpClient: Stripe.createFetchHttpClient(),
-  apiVersion: '2024-11-20'
+  // apiVersion: '2024-11-20'
 })
 
 const corsHeaders = {
@@ -56,7 +56,8 @@ serve(async (req) => {
         .update({ 
           status: 'paid',
           amount_paid: (paymentIntent.amount / 100).toFixed(2),
-          balance: 0
+          balance: 0,
+          payment_intent_id: paymentIntent.id,
         })
         .eq('id', paymentIntent.metadata.invoice_id)
         .select()
