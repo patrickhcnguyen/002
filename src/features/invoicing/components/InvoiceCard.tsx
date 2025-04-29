@@ -364,7 +364,7 @@ export function InvoiceCard() {
                     // After refund succeeds, update invoice status to unpaid
                     const { error } = await supabase
                       .from('invoices')
-                      .update({ status: 'unpaid' })
+                      .update({ status: 'refunded' })
                       .eq('id', invoice.id);
 
                     if (error) throw error;

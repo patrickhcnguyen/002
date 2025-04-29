@@ -39,7 +39,6 @@ Deno.serve(async (req) => {
       .update({
         amount_paid: 0,
         balance: (amount / 100),
-        status: "unpaid",
       })
       .eq("payment_intent_id", payment_intent_id)
 
