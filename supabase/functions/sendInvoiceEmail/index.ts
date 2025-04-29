@@ -170,6 +170,10 @@ function generateEmailHtml(invoice: any, paymentUrl: string) {
               <td class="amount">${formatCurrency(invoice.subtotal)}</td>
             </tr>
             <tr>
+              <td colspan="3" class="amount">Service Fee:</td>
+              <td class="amount">${formatCurrency(invoice.service_fee)}</td>
+            </tr>
+            <tr>
               <td colspan="3" class="amount">Transaction Fee (3.5%):</td>
               <td class="amount">${formatCurrency(invoice.transaction_fee)}</td>
             </tr>
