@@ -10,9 +10,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import supabase from "@/lib/supabaseClient";
 import { useToast } from "@/hooks/use-toast";
+import { useReactToPrint } from "react-to-print";
 
 const PaymentTerms = ["Net 30", "Net 10", "Due on receipt"];
 
@@ -25,6 +26,14 @@ export function InvoiceCard() {
   const [isSaving, setIsSaving] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [staffRequirements, setStaffRequirements] = useState<StaffRequirement[]>([]);
+  const componentRef = useRef<HTMLDivElement>(null);
+  
+  const handlePrint = useReactToPrint({
+    contentRef: componentRef,
+    documentTitle: invoice?.id ? `Invoice ${invoice.id}` : 'Invoice',
+    onAfterPrint: () => console.log('Printing complete'),
+    onPrintError: (error) => console.error('Printing error:', error),
+  });
 
   useEffect(() => {
     const fetchInvoice = async () => {
@@ -114,6 +123,7 @@ export function InvoiceCard() {
           client_name: invoice.client_name,
           company_name: invoice.company_name,
           client_email: invoice.client_email,
+          service_fee: invoice.service_fee,
           staff_requirements_with_rates: invoice.staff_requirements_with_rates,
           ship_to: invoice.ship_to,
           due_date: invoice.due_date,
@@ -216,7 +226,7 @@ export function InvoiceCard() {
       setIsSendingEmail(false);
     }
   };
-
+  
   return (
     <div className="container mx-auto py-8 max-w-4xl">
       <div className="flex items-center mb-6">
@@ -261,9 +271,10 @@ export function InvoiceCard() {
                 <Edit className="mr-2 h-4 w-4" />
                 Edit
               </Button>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={handlePrint}>
                 <Printer className="mr-2 h-4 w-4" />
                 Print
+                {/* TODO: Add print functionality */}
               </Button>
               <Button 
                 variant="outline" 
@@ -284,37 +295,95 @@ export function InvoiceCard() {
         </div>
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-xl">
-              <span>Request #{invoice.request_id}</span>
-            </CardTitle>
-            <CardDescription>
-              Branch: {invoice.branch}
-            </CardDescription>
-          </div>
-          {editMode ? (
-            <Select 
-              value={invoice.status} 
-              onValueChange={value => handleChange('status', value)}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Select status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="unpaid">Unpaid</SelectItem>
-                <SelectItem value="partially_paid">Partially Paid</SelectItem>
-                <SelectItem value="paid">Paid</SelectItem>
-              </SelectContent>
-            </Select>
-          ) : (
+      <Card ref={componentRef}>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="text-xl">
+            <span>Request #{invoice.request_id}</span>
+          </CardTitle>
+          <CardDescription>
+            Branch: {invoice.branch}
+          </CardDescription>
+        </div>
+
+        {editMode ? (
+          <Select 
+            value={invoice.status} 
+            onValueChange={value => handleChange('status', value)}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="unpaid">Unpaid</SelectItem>
+              <SelectItem value="partially_paid">Partially Paid</SelectItem>
+              <SelectItem value="paid">Paid</SelectItem>
+            </SelectContent>
+          </Select>
+        ) : (
+          <div className="flex items-center gap-2">
             <Badge className={statusColor}>
               {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1).replace('_', ' ')}
             </Badge>
-          )}
-        </CardHeader>
+
+            {invoice.status === 'paid' && (
+              <Button 
+                variant="destructive" 
+                size="sm"
+                onClick={async () => {
+                  try {
+                    if (!invoice.payment_intent_id) {
+                      throw new Error('No Payment Intent ID found on invoice');
+                    }
+
+                    const { data: { session } } = await supabase.auth.getSession();
+                    if (!session) {
+                      throw new Error('Must be logged in');
+                    }
+
+                    const refundResponse = await fetch('https://huydudorftiektexxpei.supabase.co/functions/v1/stripeRefund', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${session.access_token}`
+                      },
+                      body: JSON.stringify({
+                        payment_intent_id: invoice.payment_intent_id,
+                        amount: Math.round((invoice.amount || 0) * 100) // refund full amount
+                      })
+                    });
+
+                    if (!refundResponse.ok) {
+                      throw new Error('Failed to process refund');
+                    }
+
+                    const refundData = await refundResponse.json();
+                    console.log('Refund successful:', refundData);
+
+                    // After refund succeeds, update invoice status to unpaid
+                    const { error } = await supabase
+                      .from('invoices')
+                      .update({ status: 'unpaid' })
+                      .eq('id', invoice.id);
+
+                    if (error) throw error;
+
+                    window.location.reload(); // or update local state if you want smoother UX
+
+                  } catch (error) {
+                    console.error('Refund error:', error);
+                    alert(error.message || 'An error occurred while refunding');
+                  }
+                }}
+              >
+                Refund
+              </Button>
+            )}
+          </div>
+        )}
+      </CardHeader>
+
         
         <CardContent>
           <div className="grid grid-cols-2 gap-8">
@@ -474,6 +543,15 @@ export function InvoiceCard() {
                 </TableCell>
                 <TableCell className="text-right">
                   ${invoice?.subtotal?.toFixed(2)}
+                </TableCell>
+              </TableRow>
+
+              <TableRow>
+                <TableCell colSpan={3} className="text-right font-medium">
+                  Service Fee
+                </TableCell>
+                <TableCell className="text-right">
+                  ${invoice?.service_fee?.toFixed(2)}
                 </TableCell>
               </TableRow>
               
