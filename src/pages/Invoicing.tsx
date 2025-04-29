@@ -43,6 +43,8 @@ export interface Invoice {
   po_number: string | null;
   amount_paid: number | null;
   transaction_fee: number;
+  payment_intent_id: string | null;
+  service_fee: number;
   staff_requirements_with_rates: StaffRequirement[];
 }
 
