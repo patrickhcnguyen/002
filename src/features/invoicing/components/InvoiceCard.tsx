@@ -17,6 +17,26 @@ import { useReactToPrint } from "react-to-print";
 
 const PaymentTerms = ["Net 30", "Net 10", "Due on receipt"];
 
+const STAFF_TYPES = [
+  'Brand Ambassadors',
+  'Bartenders',
+  'Production Assistants',
+  'Catering Staff',
+  'Model Staff',
+  'Registration Staff',
+  'Convention Staff'
+] as const;
+
+const STAFF_RATES: Record<typeof STAFF_TYPES[number], number> = {
+  'Brand Ambassadors': 18,
+  'Bartenders': 25,
+  'Production Assistants': 20,
+  'Catering Staff': 18,
+  'Model Staff': 19,
+  'Registration Staff': 18,
+  'Convention Staff': 18
+};
+
 interface StaffRequirement {
   date: string;
   rate: number;
@@ -185,10 +205,20 @@ export function InvoiceCard() {
       
       if (index >= 0 && index < updatedRequirements.length) {
         if (typeof value === 'object') {
-          updatedRequirements[index] = {
-            ...updatedRequirements[index],
-            [value.field]: value.value
-          };
+          // If changing position, also update the rate
+          if (value.field === 'position') {
+            const defaultRate = STAFF_RATES[value.value as keyof typeof STAFF_RATES];
+            updatedRequirements[index] = {
+              ...updatedRequirements[index],
+              [value.field]: value.value,
+              rate: defaultRate
+            };
+          } else {
+            updatedRequirements[index] = {
+              ...updatedRequirements[index],
+              [value.field]: value.value
+            };
+          }
         } else {
           updatedRequirements[index].count = parseInt(value);
         }
@@ -739,7 +769,30 @@ export function InvoiceCard() {
                 <TableRow key={`${requirement.position}-${requirement.date}`}>
                   <TableCell>
                     <div className="flex flex-col gap-2">
-                      <span className="font-medium">{requirement.position}</span>
+                      {editMode ? (
+                        <Select
+                          value={requirement.position}
+                          onValueChange={(newValue) => {
+                            handleChange('staff_requirements_with_rates', {
+                              field: 'position',
+                              value: newValue
+                            }, index);
+                          }}
+                        >
+                          <SelectTrigger className="w-[200px]">
+                            <SelectValue placeholder="Select staff type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {STAFF_TYPES.map((type) => (
+                              <SelectItem key={type} value={type}>
+                                {type}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <span className="font-medium">{requirement.position}</span>
+                      )}
                       <div className="flex flex-col gap-2">
                         {editMode ? (
                           <>
