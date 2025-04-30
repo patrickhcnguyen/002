@@ -29,7 +29,17 @@ serve(async (req) => {
   }
 
   try {
-    const { invoiceId, paymentUrl } = await req.json();
+    const { 
+      invoiceId, 
+      paymentUrl, 
+      adminEmail, 
+      adminName,
+      subtotal,
+      serviceFee,
+      transactionFee,
+      fullAmount,
+      staff_requirements_with_rates 
+    } = await req.json();
     
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -43,12 +53,32 @@ serve(async (req) => {
       .single();
       
     if (error) throw error;
-    
+
+    // Create email with the data we have
     const formData = new FormData();
     formData.append('from', 'Evershift Invoicing <invoicing@evershift.co>');
     formData.append('to', invoice.client_email);
     formData.append('subject', `Invoice #${invoice.request_id} from Evershift`);
-    formData.append('html', generateEmailHtml(invoice, paymentUrl));
+    
+    // Update invoice with latest calculations before generating email
+    const updatedInvoice = {
+      ...invoice,
+      subtotal,
+      service_fee: serviceFee,
+      transaction_fee: transactionFee,
+      amount: fullAmount,
+      staff_requirements_with_rates
+    };
+    
+    formData.append('html', generateEmailHtml(updatedInvoice, paymentUrl));
+    
+    // Set Reply-To header using the admin info from the frontend
+    if (adminEmail && adminName) {
+      formData.append('h:Reply-To', `${adminName} <${adminEmail}>`);
+    } else {
+      // Fallback to default
+      formData.append('h:Reply-To', 'Evershift Support <support@evershift.co>');
+    }
     
     const mailgunDomain = Deno.env.get('MAILGUN_DOMAIN') || '';
     
@@ -64,7 +94,9 @@ serve(async (req) => {
     );
     
     if (!mailgunResponse.ok) {
-      throw new Error(`Mailgun error: ${await mailgunResponse.text()}`);
+      const errorText = await mailgunResponse.text();
+      console.error('Mailgun error:', errorText);
+      throw new Error(`Mailgun error: ${errorText}`);
     }
     
     return new Response(
@@ -77,6 +109,7 @@ serve(async (req) => {
       }
     );
   } catch (error) {
+    console.error('Function error:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
