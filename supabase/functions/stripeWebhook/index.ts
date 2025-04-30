@@ -46,26 +46,53 @@ serve(async (req) => {
       console.log('Metadata:', paymentIntent.metadata)
 
       // Connect to Supabase
-      const supabase = createClient(
-        Deno.env.get('SUPABASE_URL')!,
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-      )
-
-      const { data, error } = await supabase
+      const supabase = createClient(Deno.env.get('SUPABASE_URL'), Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'))
+      
+      // Update invoice status
+      const { data: invoice, error } = await supabase
         .from('invoices')
-        .update({ 
+        .update({
           status: 'paid',
           amount_paid: (paymentIntent.amount / 100).toFixed(2),
           balance: 0,
-          payment_intent_id: paymentIntent.id,
+          payment_intent_id: paymentIntent.id
         })
         .eq('id', paymentIntent.metadata.invoice_id)
-        .select()
+        .select('*, client_name, client_email')
+        .single()
 
-      console.log('Update result:', { data, error })
-
+      console.log('Update result:', { data: invoice, error })
+      
       if (error) {
         throw error
+      }
+
+      // Now call sendAdminNotification with the correct parameters
+      try {
+        console.log('Sending admin notification with metadata:', paymentIntent.metadata);
+        
+        const response = await fetch('https://huydudorftiektexxpei.supabase.co/functions/v1/sendAdminPaymentEmail', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
+          },
+          body: JSON.stringify({
+            invoice_id: paymentIntent.metadata.invoice_id,
+            amount_paid: (paymentIntent.amount / 100),
+            admin_email: paymentIntent.metadata.admin_email,
+            client_name: invoice.client_name || invoice.company_name
+          })
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Failed to send admin notification email:', errorText);
+        } else {
+          console.log('Admin notification email sent successfully');
+        }
+      } catch (error) {
+        console.error('Error sending admin notification:', error)
       }
 
       console.log(`Invoice ${paymentIntent.metadata.invoice_id} marked as paid`)
