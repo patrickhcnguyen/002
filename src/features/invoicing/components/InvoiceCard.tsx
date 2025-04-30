@@ -321,7 +321,8 @@ export function InvoiceCard() {
           subtotal: subtotal,
           serviceFee: serviceFee,
           transactionFee: transactionFee,
-          staff_requirements_with_rates: staffRequirements
+          staff_requirements_with_rates: staffRequirements,
+          admin_email: adminEmail
         })
       });
 
