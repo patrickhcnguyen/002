@@ -208,7 +208,6 @@ export function InvoiceCard() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // Recalculate all totals to ensure consistency
       const {
         requirements: updatedRequirements,
         subtotal,
@@ -221,6 +220,9 @@ export function InvoiceCard() {
         ? PaymentTerms[invoice.payment_terms as number] || "Due on receipt"
         : invoice.payment_terms;
       
+      // Check if PO number has changed
+      const shouldIncrementPOCounter = invoice.po_number !== location.state?.invoice?.po_number;
+
       const { error } = await supabase
         .from('invoices')
         .update({
@@ -238,7 +240,9 @@ export function InvoiceCard() {
           amount: fullAmount,
           balance: fullAmount - (invoice.amount_paid || 0),
           subtotal: subtotal,
-          status: invoice.status
+          status: invoice.status,
+          // Increment the counter if PO number was changed
+          po_edit_counter: shouldIncrementPOCounter ? 1 : invoice.po_edit_counter || 0
         })
         .eq('id', invoice.id);
 
@@ -246,7 +250,7 @@ export function InvoiceCard() {
         throw error;
       }
 
-      // Update local state with the recalculated values
+      // Update local state
       setStaffRequirements(updatedRequirements);
       setInvoice(prev => ({
         ...prev,
@@ -255,7 +259,8 @@ export function InvoiceCard() {
         service_fee: serviceFee,
         transaction_fee: transactionFee,
         amount: fullAmount,
-        balance: fullAmount - (prev.amount_paid || 0)
+        balance: fullAmount - (prev.amount_paid || 0),
+        po_edit_counter: shouldIncrementPOCounter ? 1 : prev.po_edit_counter || 0
       }));
 
       toast({
@@ -618,10 +623,17 @@ export function InvoiceCard() {
                 
                 <div className="text-muted-foreground">PO Number:</div>
                 {editMode ? (
-                  <Input 
-                    value={invoice.po_number || ''} 
-                    onChange={e => handleChange('po_number', e.target.value, 0)} 
-                  />
+                  invoice.po_edit_counter >= 1 ? (
+                    // If PO has been edited once already, show as non-editable
+                    <div>{invoice.po_number || "Not specified"}</div>
+                  ) : (
+                    // Allow editing if counter is 0
+                    <Input 
+                      value={invoice.po_number || ''} 
+                      onChange={e => handleChange('po_number', e.target.value, 0)} 
+                      placeholder="Enter PO Number"
+                    />
+                  )
                 ) : (
                   <div>{invoice.po_number || "Not specified"}</div>
                 )}
