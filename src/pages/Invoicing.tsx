@@ -46,6 +46,9 @@ export interface Invoice {
   transaction_fee: number;
   payment_intent_id: string | null;
   service_fee: number;
+  discount_type: string | null;
+  discount_value: number | null;
+  shipping_cost: number | null;
   staff_requirements_with_rates: StaffRequirement[];
 }
 
