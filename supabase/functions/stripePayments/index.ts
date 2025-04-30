@@ -17,13 +17,14 @@ serve(async (req) => {
   }
 
   try {
-    const { amount, client_email, invoiceId } = await req.json();
-    console.log('💳 Creating payment for:', { amount, client_email, invoiceId });
+    const { amount, client_email, invoiceId, admin_email } = await req.json();
+    console.log('💳 Creating payment for:', { amount, client_email, invoiceId, admin_email });
     
     const session = await stripe.checkout.sessions.create({
       payment_intent_data: {
         metadata: {
-          invoice_id: invoiceId
+          invoice_id: invoiceId,
+          admin_email: admin_email
         }
       },
       line_items: [{
