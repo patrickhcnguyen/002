@@ -38,6 +38,8 @@ export function InvoiceCard() {
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [staffRequirements, setStaffRequirements] = useState<StaffRequirement[]>([]);
   const componentRef = useRef<HTMLDivElement>(null);
+  const [editingDates, setEditingDates] = useState<{[key: string]: string}>({});
+  const [editingTimes, setEditingTimes] = useState<{[key: string]: string}>({});
   
   const handlePrint = useReactToPrint({
     contentRef: componentRef,
@@ -45,20 +47,6 @@ export function InvoiceCard() {
     onAfterPrint: () => console.log('Printing complete'),
     onPrintError: (error) => console.error('Printing error:', error),
   });
-
-  // const handleShare = async() => {
-  //   const blob = new Blob([], { type: 'application/pdf' });
-  //   const file = new File([blob], 'invoice.pdf', { type: 'application/pdf' });
-  //   if (navigator.canShare && navigator.canShare({files: [file]})) {
-  //     await navigator.share({
-  //       title: `Invoice ${invoice?.id} from Evershift`,
-  //       text: "Share Invoice",
-  //       files: [file],
-  //     })
-  //   } else {
-  //     console.log('Share not supported');
-  //   }
-  // }
 
   useEffect(() => {
     const fetchInvoice = async () => {
@@ -76,42 +64,23 @@ export function InvoiceCard() {
         return;
       }
 
-      console.log('Fetched invoice data:', data);
+      const requirements = typeof data.staff_requirements_with_rates === 'string'
+        ? JSON.parse(data.staff_requirements_with_rates)
+        : data.staff_requirements_with_rates;
+
       setInvoice(data);
+      setStaffRequirements(requirements || []);
     };
 
     fetchInvoice();
   }, [location.state]);
 
   useEffect(() => {
-    console.log('Raw invoice data:', invoice);
-    console.log('Raw staff_requirements_with_rates:', invoice?.staff_requirements_with_rates);
-    
-    if (invoice?.staff_requirements_with_rates) {
-      try {
-        const requirements = typeof invoice.staff_requirements_with_rates === 'string'
-          ? JSON.parse(invoice.staff_requirements_with_rates)
-          : invoice.staff_requirements_with_rates;
-          
-        console.log('Parsed requirements:', requirements);
-        console.log('Requirements type:', typeof requirements);
-        console.log('Is Array?', Array.isArray(requirements));
-        
-        if (Array.isArray(requirements)) {
-          console.log('First requirement:', requirements[0]);
-          console.log('Requirements length:', requirements.length);
-        }
-        
-        setStaffRequirements(requirements);
-      } catch (error) {
-        console.error('Error parsing staff requirements:', error);
-      }
+    if (!editMode) {
+      setEditingDates({});
+      setEditingTimes({});
     }
-  }, [invoice]);
-
-  useEffect(() => {
-    console.log('Current staffRequirements state:', staffRequirements);
-  }, [staffRequirements]);
+  }, [editMode]);
 
   if (!invoice) {
     return (
@@ -129,24 +98,64 @@ export function InvoiceCard() {
     'bg-red-100 text-red-800';
     
     const calculateHours = (startTime: string, endTime: string): number => {
-      const [startHour, startMin] = startTime.split(':').map(Number);
-      const [endHour, endMin] = endTime.split(':').map(Number);
-    
-      const start = startHour * 60 + startMin;
-      const end = endHour * 60 + endMin;
-    
-      return Math.max(0, (end - start) / 60);
+      const convertTo24Hour = (timeStr: string) => {
+        if (!timeStr.toLowerCase().includes('am') && !timeStr.toLowerCase().includes('pm')) {
+          return timeStr;
+        }
+
+        let [time, period] = timeStr.toLowerCase().split(' ');
+        let [hours, minutes] = time.split(':').map(Number);
+
+        if (period === 'pm' && hours !== 12) {
+          hours += 12;
+        } else if (period === 'am' && hours === 12) {
+          hours = 0;
+        }
+
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+      };
+
+      const timeToMinutes = (time: string) => {
+        const [hours, minutes] = convertTo24Hour(time).split(':').map(Number);
+        return hours * 60 + minutes;
+      };
+
+      let startMinutes = timeToMinutes(startTime);
+      let endMinutes = timeToMinutes(endTime);
+
+      if (endMinutes < startMinutes) {
+        endMinutes += 24 * 60; 
+      }
+
+      const hours = (endMinutes - startMinutes) / 60;
+      
+      return Number(Math.max(0, hours).toFixed(2));
     };
     
-  
+  const calculateSubtotal = (requirement: StaffRequirement) => {
+    const hours = calculateHours(requirement.startTime, requirement.endTime);
+    return Number((requirement.rate * hours * requirement.count).toFixed(2));
+  };
 
   const recalculateInvoiceTotals = (requirements: StaffRequirement[]) => {
-    const subtotal = requirements.reduce((sum, req) => sum + req.subtotal, 0);
-    const serviceFee = (subtotal * 1.5) - subtotal;
-    const transactionFee = Number((subtotal * 0.035).toFixed(2));
-    const fullAmount = Number((subtotal * 1.5).toFixed(2));
+    const updatedRequirements = requirements.map(req => ({
+      ...req,
+      subtotal: calculateSubtotal(req)
+    }));
+
+    // cost of staff
+    const subtotal = Number(updatedRequirements.reduce((sum, req) => sum + req.subtotal, 0).toFixed(2));
+
+    // subtotal * 0.035
+    const transactionFee = Number((subtotal * 0.035).toFixed(2)); 
+    
+    // (subtotal + transactionFee) * 1.5 - subtotal
+    const serviceFee = Number(((subtotal + transactionFee) * 1.5 - (subtotal + transactionFee)).toFixed(2));
+    
+    const fullAmount = Number((subtotal + serviceFee + transactionFee).toFixed(2));
 
     return {
+      requirements: updatedRequirements,
       subtotal,
       serviceFee,
       transactionFee,
@@ -154,51 +163,40 @@ export function InvoiceCard() {
     };
   };
 
-  const handleChange = (field: string, value: any, index: number) => {
-    if (field === 'staff_requirements_with_rates') {
-      const updatedRequirements = staffRequirements.map((req, i) => {
-        if (i === index) {
-          let updatedReq = { ...req };
-          
-          // Handle different field updates
-          if (typeof value === 'object') {
-            const { field: updateField, value: updateValue } = value;
-            updatedReq[updateField] = updateValue;
-
-            // Recalculate hours if time fields changed
-            if (updateField === 'startTime' || updateField === 'endTime') {
-              const hours = calculateHours(
-                updateField === 'startTime' ? updateValue : req.startTime,
-                updateField === 'endTime' ? updateValue : req.endTime
-              );
-              updatedReq.hours = hours;
-            }
-
-            // Recalculate subtotal for this requirement
-            updatedReq.subtotal = updatedReq.rate * updatedReq.hours * updatedReq.count;
-          } else {
-            // For simple count updates
-            updatedReq.count = parseInt(value) || 0;
-            updatedReq.subtotal = updatedReq.rate * updatedReq.hours * updatedReq.count;
-          }
-          
-          return updatedReq;
+  const handleChange = (field: string, value: any, index?: number) => {
+    if (field === 'staff_requirements_with_rates' && typeof index === 'number') {
+      const updatedRequirements = [...staffRequirements];
+      
+      if (index >= 0 && index < updatedRequirements.length) {
+        if (typeof value === 'object') {
+          updatedRequirements[index] = {
+            ...updatedRequirements[index],
+            [value.field]: value.value
+          };
+        } else {
+          updatedRequirements[index].count = parseInt(value);
         }
-        return req;
-      });
 
-      // Recalculate all invoice totals
-      const { subtotal, serviceFee, transactionFee, fullAmount } = recalculateInvoiceTotals(updatedRequirements);
+        // Recalculate all totals
+        const {
+          requirements,
+          subtotal,
+          serviceFee,
+          transactionFee,
+          fullAmount
+        } = recalculateInvoiceTotals(updatedRequirements);
 
-      setInvoice(prev => ({
-        ...prev,
-        staff_requirements_with_rates: updatedRequirements,
-        subtotal: subtotal,
-        service_fee: serviceFee,
-        transaction_fee: transactionFee,
-        amount: fullAmount,
-        balance: fullAmount // Assuming balance starts as full amount
-      }));
+        setStaffRequirements(requirements);
+        setInvoice(prev => ({
+          ...prev,
+          staff_requirements_with_rates: requirements,
+          subtotal,
+          service_fee: serviceFee,
+          transaction_fee: transactionFee,
+          amount: fullAmount,
+          balance: fullAmount // Update balance to match full amount if no payments
+        }));
+      }
     } else {
       setInvoice(prev => ({
         ...prev,
@@ -210,6 +208,15 @@ export function InvoiceCard() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      // Recalculate all totals to ensure consistency
+      const {
+        requirements: updatedRequirements,
+        subtotal,
+        serviceFee,
+        transactionFee,
+        fullAmount
+      } = recalculateInvoiceTotals(staffRequirements);
+
       const paymentTermsValue = typeof invoice.payment_terms === 'number' 
         ? PaymentTerms[invoice.payment_terms as number] || "Due on receipt"
         : invoice.payment_terms;
@@ -220,14 +227,17 @@ export function InvoiceCard() {
           client_name: invoice.client_name,
           company_name: invoice.company_name,
           client_email: invoice.client_email,
-          service_fee: invoice.service_fee,
-          staff_requirements_with_rates: invoice.staff_requirements_with_rates,
+          service_fee: serviceFee,
+          transaction_fee: transactionFee,
+          staff_requirements_with_rates: updatedRequirements,
           ship_to: invoice.ship_to,
           due_date: invoice.due_date,
           payment_terms: paymentTermsValue,
           po_number: invoice.po_number,
           notes: invoice.notes,
-          amount: invoice.amount,
+          amount: fullAmount,
+          balance: fullAmount - (invoice.amount_paid || 0),
+          subtotal: subtotal,
           status: invoice.status
         })
         .eq('id', invoice.id);
@@ -235,6 +245,18 @@ export function InvoiceCard() {
       if (error) {
         throw error;
       }
+
+      // Update local state with the recalculated values
+      setStaffRequirements(updatedRequirements);
+      setInvoice(prev => ({
+        ...prev,
+        staff_requirements_with_rates: updatedRequirements,
+        subtotal,
+        service_fee: serviceFee,
+        transaction_fee: transactionFee,
+        amount: fullAmount,
+        balance: fullAmount - (prev.amount_paid || 0)
+      }));
 
       toast({
         title: "Invoice updated",
@@ -270,7 +292,8 @@ export function InvoiceCard() {
         throw new Error('You must be logged in to send emails');
       }
 
-      // 1. First create Stripe checkout session
+      const { subtotal, serviceFee, transactionFee, fullAmount } = recalculateInvoiceTotals(staffRequirements);
+
       const stripeResponse = await fetch('https://huydudorftiektexxpei.supabase.co/functions/v1/stripePayments', {
         method: 'POST',
         headers: {
@@ -278,10 +301,14 @@ export function InvoiceCard() {
           'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({
-          amount: invoice.amount,
+          amount: fullAmount,
           client_email: invoice.client_email,
           company_name: invoice.company_name || invoice.client_name,
-          invoiceId: invoice.id
+          invoiceId: invoice.id,
+          subtotal: subtotal,
+          serviceFee: serviceFee,
+          transactionFee: transactionFee,
+          staff_requirements_with_rates: staffRequirements
         })
       });
 
@@ -291,7 +318,6 @@ export function InvoiceCard() {
 
       const { url: paymentUrl } = await stripeResponse.json();
 
-      // 2. Then send email with the payment URL
       const emailResponse = await fetch('https://huydudorftiektexxpei.supabase.co/functions/v1/sendInvoiceEmail', {
         method: 'POST',
         headers: {
@@ -300,13 +326,32 @@ export function InvoiceCard() {
         },
         body: JSON.stringify({ 
           invoiceId: invoice.id,
-          paymentUrl // Pass the payment URL to the email function
+          paymentUrl,
+          subtotal: subtotal,
+          serviceFee: serviceFee,
+          transactionFee: transactionFee,
+          fullAmount: fullAmount,
+          staff_requirements_with_rates: staffRequirements
         })
       });
 
       if (!emailResponse.ok) {
         throw new Error('Failed to send email');
       }
+
+      const { error: updateError } = await supabase
+        .from('invoices')
+        .update({
+          subtotal,
+          service_fee: serviceFee,
+          transaction_fee: transactionFee,
+          amount: fullAmount,
+          balance: fullAmount,
+          staff_requirements_with_rates: staffRequirements
+        })
+        .eq('id', invoice.id);
+
+      if (updateError) throw updateError;
 
       toast({
         title: "Email Sent",
@@ -461,7 +506,6 @@ export function InvoiceCard() {
                     const refundData = await refundResponse.json();
                     console.log('Refund successful:', refundData);
 
-                    // After refund succeeds, update invoice status to unpaid
                     const { error } = await supabase
                       .from('invoices')
                       .update({ status: 'refunded' })
@@ -469,7 +513,7 @@ export function InvoiceCard() {
 
                     if (error) throw error;
 
-                    window.location.reload(); // or update local state if you want smoother UX
+                    window.location.reload(); 
 
                   } catch (error) {
                     console.error('Refund error:', error);
@@ -483,8 +527,6 @@ export function InvoiceCard() {
           </div>
         )}
       </CardHeader>
-
-        
         <CardContent>
           <div className="grid grid-cols-2 gap-8">
             <div>
@@ -546,7 +588,7 @@ export function InvoiceCard() {
                   <Input 
                     type="date" 
                     value={invoice.due_date} 
-                    onChange={e => handleChange('due_date', e.target.value, 0)} 
+                    onChange={e => handleChange('due_date', e.target.value)} 
                   />
                 ) : (
                   <div>{new Date(invoice.due_date).toLocaleDateString()}</div>
@@ -614,49 +656,63 @@ export function InvoiceCard() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {staffRequirements.map((requirement, index) => (
+              {staffRequirements?.map((requirement, index) => (
                 <TableRow key={`${requirement.position}-${requirement.date}`}>
                   <TableCell>
                     <div className="flex flex-col gap-2">
                       <span className="font-medium">{requirement.position}</span>
-                      {editMode ? (
-                        <div className="flex flex-col gap-2">
-                          <Input 
-                            type="date" 
-                            value={requirement.date}
-                            onChange={e => handleChange('staff_requirements_with_rates', {
-                              field: 'date',
-                              value: e.target.value
-                            }, index)}
-                            className="w-full"
-                          />
-                          <div className="flex items-center gap-2">
-                            <Input
-                              type="time"
-                              value={requirement.startTime.split(' ')[0]}
-                              onChange={e => handleChange('staff_requirements_with_rates', {
-                                field: 'startTime',
+                      <div className="flex flex-col gap-2">
+                        {editMode ? (
+                          <>
+                            <Input 
+                              type="date" 
+                              defaultValue={requirement.date}
+                              onBlur={e => handleChange('staff_requirements_with_rates', {
+                                field: 'date',
                                 value: e.target.value
                               }, index)}
-                              className="w-24"
+                              className="w-full"
                             />
-                            <span>to</span>
-                            <Input
-                              type="time"
-                              value={requirement.endTime.split(' ')[0]}
-                              onChange={e => handleChange('staff_requirements_with_rates', {
-                                field: 'endTime',
-                                value: e.target.value
-                              }, index)}
-                              className="w-24"
-                            />
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">
-                          {new Date(requirement.date).toLocaleDateString()} ({requirement.startTime} - {requirement.endTime})
-                        </span>
-                      )}
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="time"
+                                value={editingTimes[`${index}-startTime`] || requirement.startTime.split(' ')[0]}
+                                onChange={e => {
+                                  setEditingTimes(prev => ({
+                                    ...prev,
+                                    [`${index}-startTime`]: e.target.value
+                                  }));
+                                  handleChange('staff_requirements_with_rates', {
+                                    field: 'startTime',
+                                    value: e.target.value
+                                  }, index);
+                                }}
+                                className="w-28"
+                              />
+                              <span>to</span>
+                              <Input
+                                type="time"
+                                value={editingTimes[`${index}-endTime`] || requirement.endTime.split(' ')[0]}
+                                onChange={e => {
+                                  setEditingTimes(prev => ({
+                                    ...prev,
+                                    [`${index}-endTime`]: e.target.value
+                                  }));
+                                  handleChange('staff_requirements_with_rates', {
+                                    field: 'endTime',
+                                    value: e.target.value
+                                  }, index);
+                                }}
+                                className="w-28"
+                              />
+                            </div>
+                          </>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">
+                            {new Date(requirement.date).toLocaleDateString()} ({requirement.startTime} - {requirement.endTime})
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
@@ -690,7 +746,7 @@ export function InvoiceCard() {
                     )}
                   </TableCell>
                   <TableCell className="text-right">
-                    ${requirement.subtotal.toFixed(2)}
+                    ${calculateSubtotal(requirement).toFixed(2)}
                   </TableCell>
                 </TableRow>
               ))}
@@ -700,7 +756,7 @@ export function InvoiceCard() {
                   Subtotal
                 </TableCell>
                 <TableCell className="text-right">
-                  ${invoice?.subtotal?.toFixed(2)}
+                  ${invoice.subtotal?.toFixed(2)}
                 </TableCell>
               </TableRow>
 
@@ -709,7 +765,7 @@ export function InvoiceCard() {
                   Service Fee
                 </TableCell>
                 <TableCell className="text-right">
-                  ${invoice?.service_fee?.toFixed(2)}
+                  ${invoice.service_fee?.toFixed(2)}
                 </TableCell>
               </TableRow>
               
@@ -718,7 +774,7 @@ export function InvoiceCard() {
                   Transaction Fee (3.5%)
                 </TableCell>
                 <TableCell className="text-right">
-                  ${invoice?.transaction_fee?.toFixed(2)}
+                  ${invoice.transaction_fee?.toFixed(2)}
                 </TableCell>
               </TableRow>
 
@@ -727,18 +783,20 @@ export function InvoiceCard() {
                   Total Amount
                 </TableCell>
                 <TableCell className="text-right font-bold">
-                  ${invoice?.amount?.toFixed(2)}
+                  ${invoice.amount?.toFixed(2)}
                 </TableCell>
               </TableRow>
 
-              <TableRow>
-                <TableCell colSpan={3} className="text-right font-medium">
-                  Balance Due
-                </TableCell>
-                <TableCell className="text-right font-bold">
-                  ${invoice.balance?.toFixed(2) || '0.00'}
-                </TableCell>
-              </TableRow>
+              {invoice.amount_paid > 0 && (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-right font-medium">
+                    Amount Paid
+                  </TableCell>
+                  <TableCell className="text-right">
+                    ${invoice.amount_paid.toFixed(2)}
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
@@ -746,30 +804,32 @@ export function InvoiceCard() {
         <CardFooter className="flex flex-col items-end space-y-2 pt-6">
           <div className="flex w-full max-w-[200px] justify-between">
             <span>Subtotal:</span>
-            <span>{formatCurrency(invoice.amount)}</span>
+            <span>{formatCurrency(invoice.subtotal || 0)}</span>
           </div>
           
-          {invoice.transaction_fee && (
-            <div className="flex w-full max-w-[200px] justify-between">
-              <span>Transaction Fee:</span>
-              <span>{formatCurrency(invoice.transaction_fee)}</span>
-            </div>
-          )}
+          <div className="flex w-full max-w-[200px] justify-between">
+            <span>Transaction Fee:</span>
+            <span>{formatCurrency(invoice.transaction_fee || 0)}</span>
+          </div>
           
-          {invoice.amount_paid && (
+          {invoice.amount_paid > 0 && (
             <div className="flex w-full max-w-[200px] justify-between">
               <span>Amount Paid:</span>
               <span>{formatCurrency(invoice.amount_paid)}</span>
             </div>
           )}
+
+          <div className="flex w-full max-w-[200px] justify-between">
+            <span>Service Fee:</span>
+            <span>{formatCurrency(invoice.service_fee || 0)}</span>
+          </div>
           
           <div className="flex w-full max-w-[200px] justify-between font-bold">
             <span>Balance Due:</span>
-            <span>{formatCurrency(invoice.balance)}</span>
+            <span>{formatCurrency(invoice.balance || 0)}</span>
           </div>
         </CardFooter>
       </Card>
     </div>
   );
 }
-
