@@ -24,11 +24,6 @@ type StaffRequirement = {
   startTime: string;
 }
 
-// balance should subtotal * 1.5
-const calculateBalance = (subtotal: number) => {
-  return subtotal * 1.5;
-}
-
 const calculateStaffRates = (staff_requirements: StaffRequirement[]) => {
   return staff_requirements.map(requirement => {
     const hourlyRate = STAFF_RATES[requirement.position as StaffPosition] || 0;
@@ -114,13 +109,14 @@ serve(async (req) => {
     // subtotal (sum of all staff requirements)
     const subtotal = staffWithRates.reduce((sum, staff) => sum + staff.subtotal, 0);
 
-    const serviceFee = (subtotal * 1.5) - subtotal;
-    
     // transaction fee (3.5%)
     const transactionFee = Number((subtotal * 0.035).toFixed(2));
+
+    // service fee (subtotal + transactionFee) * 1.5 - subtotal
+    const serviceFee = (subtotal + transactionFee) * 1.5 - (subtotal + transactionFee);
     
-    // balance (subtotal * 1.5)
-    const fullAmount = Number(calculateBalance(subtotal).toFixed(2));
+    // balance (subtotal + transactionFee + serviceFee)
+    const fullAmount = Number((subtotal + transactionFee + serviceFee).toFixed(2));
 
     const { data: invoice, error: invoiceError } = await supabase
       .from('invoices')
