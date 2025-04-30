@@ -429,6 +429,49 @@ export function InvoiceCard() {
       setIsSendingEmail(false);
     }
   };
+
+  const handleAddStaff = () => {
+    const newStaffRequirement: StaffRequirement = {
+      position: STAFF_TYPES[0],
+      date: new Date().toISOString().split('T')[0],
+      startTime: '09:00',
+      endTime: '17:00',
+      rate: STAFF_RATES[STAFF_TYPES[0]],
+      count: 1,
+      hours: 8,
+      subtotal: STAFF_RATES[STAFF_TYPES[0]] * 8
+    };
+    
+    const updatedRequirements = [...staffRequirements, newStaffRequirement];
+    const { requirements, subtotal, serviceFee, transactionFee, fullAmount } = recalculateInvoiceTotals(updatedRequirements);
+    
+    setStaffRequirements(requirements);
+    setInvoice(prev => ({
+      ...prev,
+      staff_requirements_with_rates: requirements,
+      subtotal,
+      service_fee: serviceFee,
+      transaction_fee: transactionFee,
+      amount: fullAmount,
+      balance: fullAmount
+    }));
+  };
+
+  const handleRemoveStaff = (index: number) => {
+    const updatedRequirements = staffRequirements.filter((_, i) => i !== index);
+    const { requirements, subtotal, serviceFee, transactionFee, fullAmount } = recalculateInvoiceTotals(updatedRequirements);
+    
+    setStaffRequirements(requirements);
+    setInvoice(prev => ({
+      ...prev,
+      staff_requirements_with_rates: requirements,
+      subtotal,
+      service_fee: serviceFee,
+      transaction_fee: transactionFee,
+      amount: fullAmount,
+      balance: fullAmount
+    }));
+  };
   
   return (
     <div className="container mx-auto py-8 max-w-4xl">
@@ -762,6 +805,7 @@ export function InvoiceCard() {
                 <TableHead className="text-right">Quantity</TableHead>
                 <TableHead className="text-right">Rate</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
+                {editMode && <TableHead className="w-[50px]"></TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -880,8 +924,34 @@ export function InvoiceCard() {
                   <TableCell className="text-right">
                     ${calculateSubtotal(requirement).toFixed(2)}
                   </TableCell>
+                  {editMode && (
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveStaff(index)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
+              {editMode && (
+                <TableRow>
+                  <TableCell colSpan={5}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAddStaff}
+                      className="w-full"
+                    >
+                      Add Staff Requirement
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              )}
               {/* Summary rows */}
               <TableRow className="border-t-2">
                 <TableCell colSpan={3} className="text-right font-medium">
