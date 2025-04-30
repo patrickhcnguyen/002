@@ -7,7 +7,7 @@ import MapboxGeocoder from '@mapbox/mapbox-gl-geocoder';
 import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { geocodeAndFindNearestOffice } from './locationService';
-
+import { useNavigate } from 'react-router-dom';
 
 interface StaffRequirement {
   date: string;
@@ -40,7 +40,7 @@ const MultiStepForm: React.FC = () => {
   const staffRequirementsRef = useRef<HTMLDivElement>(null);
   const [showThankYou, setShowThankYou] = useState(false);
   const [staffInputs, setStaffInputs] = useState<DateStaffInputs>({});
-
+  const navigate = useNavigate();
   const positionImages = {
     "Brand Ambassadors": "https://images.squarespace-cdn.com/content/65d3c0aefe9b024b40b6fa20/f1f125a8-db1a-40ad-aa6c-0460c4e521f5/F864B7BE-D5ED-4F06-8D41-991BDBE0D5FD.jpg",
     "Bartenders": "https://images.squarespace-cdn.com/content/65d3c0aefe9b024b40b6fa20/aab8a440-7624-4851-852e-56010bf8c40a/818E85D3-0507-401F-9C56-64EBB2420930_4_5005_c.jpeg",
@@ -348,6 +348,7 @@ const MultiStepForm: React.FC = () => {
       setTimeout(() => {
         resetForm();
         setShowThankYou(false);
+        navigate('/');
       }, 3000);
     } catch (error) {
       console.error('Error:', error);
