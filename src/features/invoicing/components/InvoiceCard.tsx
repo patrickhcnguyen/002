@@ -297,6 +297,14 @@ export function InvoiceCard() {
         throw new Error('You must be logged in to send emails');
       }
 
+      // Get admin email from session
+      const adminEmail = session.user.email;
+      const adminName = session.user.user_metadata?.name || 'Evershift Admin';
+
+      if (!adminEmail) {
+        throw new Error('Admin email not found in session');
+      }
+
       const { subtotal, serviceFee, transactionFee, fullAmount } = recalculateInvoiceTotals(staffRequirements);
 
       const stripeResponse = await fetch('https://huydudorftiektexxpei.supabase.co/functions/v1/stripePayments', {
@@ -336,12 +344,15 @@ export function InvoiceCard() {
           serviceFee: serviceFee,
           transactionFee: transactionFee,
           fullAmount: fullAmount,
-          staff_requirements_with_rates: staffRequirements
+          staff_requirements_with_rates: staffRequirements,
+          adminEmail,
+          adminName
         })
       });
 
       if (!emailResponse.ok) {
-        throw new Error('Failed to send email');
+        const errorData = await emailResponse.json();
+        throw new Error(errorData.error || 'Failed to send email');
       }
 
       const { error: updateError } = await supabase
