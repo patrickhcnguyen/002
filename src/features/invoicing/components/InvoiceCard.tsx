@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Invoice, StaffRequirement } from "@/pages/Invoicing";
+import { Invoice } from "@/pages/Invoicing";
 import { formatCurrency } from "@/lib/utils";
 import { ArrowLeft, Mail, Printer, Share, Save, Edit, X } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -16,6 +16,17 @@ import { useToast } from "@/hooks/use-toast";
 import { useReactToPrint } from "react-to-print";
 
 const PaymentTerms = ["Net 30", "Net 10", "Due on receipt"];
+
+interface StaffRequirement {
+  date: string;
+  rate: number;
+  count: number;
+  hours: number;
+  endTime: string;
+  position: string;
+  subtotal: number;
+  startTime: string;
+}
 
 export function InvoiceCard() {
   const navigate = useNavigate();
@@ -34,6 +45,20 @@ export function InvoiceCard() {
     onAfterPrint: () => console.log('Printing complete'),
     onPrintError: (error) => console.error('Printing error:', error),
   });
+
+  // const handleShare = async() => {
+  //   const blob = new Blob([], { type: 'application/pdf' });
+  //   const file = new File([blob], 'invoice.pdf', { type: 'application/pdf' });
+  //   if (navigator.canShare && navigator.canShare({files: [file]})) {
+  //     await navigator.share({
+  //       title: `Invoice ${invoice?.id} from Evershift`,
+  //       text: "Share Invoice",
+  //       files: [file],
+  //     })
+  //   } else {
+  //     console.log('Share not supported');
+  //   }
+  // }
 
   useEffect(() => {
     const fetchInvoice = async () => {
@@ -102,12 +127,84 @@ export function InvoiceCard() {
     invoice.status === 'paid' ? 'bg-green-100 text-green-800' : 
     invoice.status === 'partially_paid' ? 'bg-yellow-100 text-yellow-800' : 
     'bg-red-100 text-red-800';
+    
+    const calculateHours = (startTime: string, endTime: string): number => {
+      const [startHour, startMin] = startTime.split(':').map(Number);
+      const [endHour, endMin] = endTime.split(':').map(Number);
+    
+      const start = startHour * 60 + startMin;
+      const end = endHour * 60 + endMin;
+    
+      return Math.max(0, (end - start) / 60);
+    };
+    
+  
 
-  const handleChange = (field: keyof Invoice, value: any) => {
-    setInvoice(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  const recalculateInvoiceTotals = (requirements: StaffRequirement[]) => {
+    const subtotal = requirements.reduce((sum, req) => sum + req.subtotal, 0);
+    const serviceFee = (subtotal * 1.5) - subtotal;
+    const transactionFee = Number((subtotal * 0.035).toFixed(2));
+    const fullAmount = Number((subtotal * 1.5).toFixed(2));
+
+    return {
+      subtotal,
+      serviceFee,
+      transactionFee,
+      fullAmount
+    };
+  };
+
+  const handleChange = (field: string, value: any, index: number) => {
+    if (field === 'staff_requirements_with_rates') {
+      const updatedRequirements = staffRequirements.map((req, i) => {
+        if (i === index) {
+          let updatedReq = { ...req };
+          
+          // Handle different field updates
+          if (typeof value === 'object') {
+            const { field: updateField, value: updateValue } = value;
+            updatedReq[updateField] = updateValue;
+
+            // Recalculate hours if time fields changed
+            if (updateField === 'startTime' || updateField === 'endTime') {
+              const hours = calculateHours(
+                updateField === 'startTime' ? updateValue : req.startTime,
+                updateField === 'endTime' ? updateValue : req.endTime
+              );
+              updatedReq.hours = hours;
+            }
+
+            // Recalculate subtotal for this requirement
+            updatedReq.subtotal = updatedReq.rate * updatedReq.hours * updatedReq.count;
+          } else {
+            // For simple count updates
+            updatedReq.count = parseInt(value) || 0;
+            updatedReq.subtotal = updatedReq.rate * updatedReq.hours * updatedReq.count;
+          }
+          
+          return updatedReq;
+        }
+        return req;
+      });
+
+      // Recalculate all invoice totals
+      const { subtotal, serviceFee, transactionFee, fullAmount } = recalculateInvoiceTotals(updatedRequirements);
+
+      setInvoice(prev => ({
+        ...prev,
+        staff_requirements_with_rates: updatedRequirements,
+        subtotal: subtotal,
+        service_fee: serviceFee,
+        transaction_fee: transactionFee,
+        amount: fullAmount,
+        balance: fullAmount // Assuming balance starts as full amount
+      }));
+    } else {
+      setInvoice(prev => ({
+        ...prev,
+        [field]: value
+      }));
+    }
   };
 
   const handleSave = async () => {
@@ -274,7 +371,6 @@ export function InvoiceCard() {
               <Button variant="outline" size="sm" onClick={handlePrint}>
                 <Printer className="mr-2 h-4 w-4" />
                 Print
-                {/* TODO: Add print functionality */}
               </Button>
               <Button 
                 variant="outline" 
@@ -285,11 +381,14 @@ export function InvoiceCard() {
                 <Mail className="mr-2 h-4 w-4" />
                 {isSendingEmail ? "Sending..." : "Email"}
               </Button>
-              <Button variant="outline" size="sm">
+              {/* <Button variant="outline" size="sm" onClick={handleShare}>
                 <Share className="mr-2 h-4 w-4" />
                 Share
-                {/* TODO: Add share functionality with maybe text or phonenumber idk*/}
-              </Button>
+              </Button> */}
+              {/* <Button variant="outline" size="sm" onClick={handleShare}>
+                <Share className="mr-2 h-4 w-4" />
+                Share
+              </Button> */}
             </>
           )}
         </div>
@@ -309,7 +408,7 @@ export function InvoiceCard() {
         {editMode ? (
           <Select 
             value={invoice.status} 
-            onValueChange={value => handleChange('status', value)}
+            onValueChange={value => handleChange('status', value, 0)}
           >
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Select status" />
@@ -319,6 +418,7 @@ export function InvoiceCard() {
               <SelectItem value="unpaid">Unpaid</SelectItem>
               <SelectItem value="partially_paid">Partially Paid</SelectItem>
               <SelectItem value="paid">Paid</SelectItem>
+              <SelectItem value="refunded">Refunded</SelectItem>
             </SelectContent>
           </Select>
         ) : (
@@ -395,7 +495,7 @@ export function InvoiceCard() {
                     <label className="text-sm text-muted-foreground">Company Name</label>
                     <Input 
                       value={invoice.company_name || ''} 
-                      onChange={e => handleChange('company_name', e.target.value)} 
+                      onChange={e => handleChange('company_name', e.target.value, 0)} 
                       className="mt-1"
                     />
                   </div>
@@ -403,7 +503,7 @@ export function InvoiceCard() {
                     <label className="text-sm text-muted-foreground">Client Name</label>
                     <Input 
                       value={invoice.client_name} 
-                      onChange={e => handleChange('client_name', e.target.value)} 
+                      onChange={e => handleChange('client_name', e.target.value, 0)} 
                       className="mt-1"
                     />
                   </div>
@@ -411,7 +511,7 @@ export function InvoiceCard() {
                     <label className="text-sm text-muted-foreground">Email</label>
                     <Input 
                       value={invoice.client_email} 
-                      onChange={e => handleChange('client_email', e.target.value)} 
+                      onChange={e => handleChange('client_email', e.target.value, 0)} 
                       className="mt-1"
                     />
                   </div>
@@ -430,7 +530,7 @@ export function InvoiceCard() {
               {editMode ? (
                 <Textarea 
                   value={invoice.ship_to || ''} 
-                  onChange={e => handleChange('ship_to', e.target.value)} 
+                  onChange={e => handleChange('ship_to', e.target.value, 0)} 
                   className="mt-1"
                 />
               ) : (
@@ -446,7 +546,7 @@ export function InvoiceCard() {
                   <Input 
                     type="date" 
                     value={invoice.due_date} 
-                    onChange={e => handleChange('due_date', e.target.value)} 
+                    onChange={e => handleChange('due_date', e.target.value, 0)} 
                   />
                 ) : (
                   <div>{new Date(invoice.due_date).toLocaleDateString()}</div>
@@ -456,7 +556,7 @@ export function InvoiceCard() {
                 {editMode ? (
                   <Select 
                     value={invoice.payment_terms || "Due on receipt"} 
-                    onValueChange={value => handleChange('payment_terms', value)}
+                    onValueChange={value => handleChange('payment_terms', value, 0)}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -478,7 +578,7 @@ export function InvoiceCard() {
                 {editMode ? (
                   <Input 
                     value={invoice.po_number || ''} 
-                    onChange={e => handleChange('po_number', e.target.value)} 
+                    onChange={e => handleChange('po_number', e.target.value, 0)} 
                   />
                 ) : (
                   <div>{invoice.po_number || "Not specified"}</div>
@@ -494,7 +594,7 @@ export function InvoiceCard() {
             {editMode ? (
               <Textarea 
                 value={invoice.notes || ''} 
-                onChange={e => handleChange('notes', e.target.value)} 
+                onChange={e => handleChange('notes', e.target.value, 0)} 
                 className="w-full"
                 placeholder="Enter any additional notes here"
                 rows={4}
@@ -514,28 +614,86 @@ export function InvoiceCard() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {staffRequirements.map(requirement => (
+              {staffRequirements.map((requirement, index) => (
                 <TableRow key={`${requirement.position}-${requirement.date}`}>
                   <TableCell>
-                    <div className="flex flex-col">
+                    <div className="flex flex-col gap-2">
                       <span className="font-medium">{requirement.position}</span>
-                      <span className="text-sm text-gray-500">
-                        {new Date(requirement.date).toLocaleDateString()} ({requirement.startTime} - {requirement.endTime})
-                      </span>
+                      {editMode ? (
+                        <div className="flex flex-col gap-2">
+                          <Input 
+                            type="date" 
+                            value={requirement.date}
+                            onChange={e => handleChange('staff_requirements_with_rates', {
+                              field: 'date',
+                              value: e.target.value
+                            }, index)}
+                            className="w-full"
+                          />
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="time"
+                              value={requirement.startTime.split(' ')[0]}
+                              onChange={e => handleChange('staff_requirements_with_rates', {
+                                field: 'startTime',
+                                value: e.target.value
+                              }, index)}
+                              className="w-24"
+                            />
+                            <span>to</span>
+                            <Input
+                              type="time"
+                              value={requirement.endTime.split(' ')[0]}
+                              onChange={e => handleChange('staff_requirements_with_rates', {
+                                field: 'endTime',
+                                value: e.target.value
+                              }, index)}
+                              className="w-24"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">
+                          {new Date(requirement.date).toLocaleDateString()} ({requirement.startTime} - {requirement.endTime})
+                        </span>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
-                    {requirement.count}
+                    {editMode ? (
+                      <Input 
+                        type="number"
+                        min="0"
+                        value={requirement.count}
+                        onChange={e => handleChange('staff_requirements_with_rates', e.target.value, index)}
+                        className="w-16 text-right"
+                      />
+                    ) : requirement.count}
                   </TableCell>
                   <TableCell className="text-right">
-                    ${requirement.rate}/hr
+                    {editMode ? (
+                      <div className="flex items-center justify-end gap-1">
+                        $<Input 
+                          type="number"
+                          min="0"
+                          value={requirement.rate}
+                          onChange={e => handleChange('staff_requirements_with_rates', {
+                            field: 'rate',
+                            value: parseFloat(e.target.value) || 0
+                          }, index)}
+                          className="w-16 text-right"
+                        />
+                        <span>/ hr</span>
+                      </div>
+                    ) : (
+                      `$${requirement.rate} / hr`
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     ${requirement.subtotal.toFixed(2)}
                   </TableCell>
                 </TableRow>
               ))}
-
               {/* Summary rows */}
               <TableRow className="border-t-2">
                 <TableCell colSpan={3} className="text-right font-medium">
