@@ -41,6 +41,7 @@ export interface Invoice {
   notes: string | null;
   ship_to: string | null;
   po_number: string | null;
+  po_edit_counter: number | null;
   amount_paid: number | null;
   transaction_fee: number;
   payment_intent_id: string | null;
