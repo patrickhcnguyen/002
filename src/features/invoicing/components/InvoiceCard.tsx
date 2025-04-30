@@ -146,20 +146,36 @@ export function InvoiceCard() {
     // cost of staff
     const subtotal = Number(updatedRequirements.reduce((sum, req) => sum + req.subtotal, 0).toFixed(2));
 
+    // calculate discount if applicable
+    let discountAmount = 0;
+    if (invoice?.discount_type && invoice?.discount_value) {
+      discountAmount = invoice.discount_type === 'flat' 
+        ? invoice.discount_value 
+        : (subtotal * (invoice.discount_value / 100));
+      discountAmount = Number(discountAmount.toFixed(2));
+    }
+
+    // add shipping cost if present
+    const shippingCost = Number(invoice?.shipping_cost || 0);
+
+    // subtotal after discount and shipping
+    const adjustedSubtotal = subtotal - discountAmount + shippingCost;
+
     // subtotal * 0.035
-    const transactionFee = Number((subtotal * 0.035).toFixed(2)); 
+    const transactionFee = Number((adjustedSubtotal * 0.035).toFixed(2)); 
     
     // (subtotal + transactionFee) * 1.5 - subtotal
-    const serviceFee = Number(((subtotal + transactionFee) * 1.5 - (subtotal + transactionFee)).toFixed(2));
+    const serviceFee = Number(((adjustedSubtotal + transactionFee) * 1.5 - (adjustedSubtotal + transactionFee)).toFixed(2));
     
-    const fullAmount = Number((subtotal + serviceFee + transactionFee).toFixed(2));
+    const fullAmount = Number((adjustedSubtotal + serviceFee + transactionFee).toFixed(2));
 
     return {
       requirements: updatedRequirements,
       subtotal,
       serviceFee,
       transactionFee,
-      fullAmount
+      fullAmount,
+      discountAmount
     };
   };
 
@@ -177,7 +193,6 @@ export function InvoiceCard() {
           updatedRequirements[index].count = parseInt(value);
         }
 
-        // Recalculate all totals
         const {
           requirements,
           subtotal,
@@ -194,7 +209,7 @@ export function InvoiceCard() {
           service_fee: serviceFee,
           transaction_fee: transactionFee,
           amount: fullAmount,
-          balance: fullAmount // Update balance to match full amount if no payments
+          balance: fullAmount 
         }));
       }
     } else {
@@ -220,7 +235,6 @@ export function InvoiceCard() {
         ? PaymentTerms[invoice.payment_terms as number] || "Due on receipt"
         : invoice.payment_terms;
       
-      // Check if PO number has changed
       const shouldIncrementPOCounter = invoice.po_number !== location.state?.invoice?.po_number;
 
       const { error } = await supabase
@@ -241,8 +255,10 @@ export function InvoiceCard() {
           balance: fullAmount - (invoice.amount_paid || 0),
           subtotal: subtotal,
           status: invoice.status,
-          // Increment the counter if PO number was changed
-          po_edit_counter: shouldIncrementPOCounter ? 1 : invoice.po_edit_counter || 0
+          po_edit_counter: shouldIncrementPOCounter ? 1 : invoice.po_edit_counter || 0,
+          discount_type: invoice.discount_type,
+          discount_value: invoice.discount_value,
+          shipping_cost: invoice.shipping_cost
         })
         .eq('id', invoice.id);
 
@@ -250,7 +266,6 @@ export function InvoiceCard() {
         throw error;
       }
 
-      // Update local state
       setStaffRequirements(updatedRequirements);
       setInvoice(prev => ({
         ...prev,
@@ -297,7 +312,6 @@ export function InvoiceCard() {
         throw new Error('You must be logged in to send emails');
       }
 
-      // Get admin email from session
       const adminEmail = session.user.email;
       const adminName = session.user.user_metadata?.name || 'Evershift Admin';
 
@@ -649,6 +663,47 @@ export function InvoiceCard() {
                 ) : (
                   <div>{invoice.po_number || "Not specified"}</div>
                 )}
+
+                {editMode && (
+                  <>
+                    <div className="text-muted-foreground">Discount Type:</div>
+                    <Select 
+                      value={invoice.discount_type || 'none'} 
+                      onValueChange={value => handleChange('discount_type', value === 'none' ? null : value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No Discount</SelectItem>
+                        <SelectItem value="flat">Flat Amount</SelectItem>
+                        <SelectItem value="percentage">Percentage</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    {invoice.discount_type && invoice.discount_type !== 'none' && (
+                      <>
+                        <div className="text-muted-foreground">
+                          Discount Value {invoice.discount_type === 'percentage' ? '(%)' : '($)'}:
+                        </div>
+                        <Input 
+                          type="number"
+                          value={invoice.discount_value || ''}
+                          onChange={e => handleChange('discount_value', parseFloat(e.target.value) || 0)}
+                          placeholder={invoice.discount_type === 'percentage' ? 'Enter percentage' : 'Enter amount'}
+                        />
+                      </>
+                    )}
+
+                    <div className="text-muted-foreground">Shipping Cost:</div>
+                    <Input 
+                      type="number"
+                      value={invoice.shipping_cost || ''}
+                      onChange={e => handleChange('shipping_cost', parseFloat(e.target.value) || 0)}
+                      placeholder="Enter shipping cost"
+                    />
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -783,6 +838,30 @@ export function InvoiceCard() {
                   ${invoice.subtotal?.toFixed(2)}
                 </TableCell>
               </TableRow>
+
+              {invoice.discount_type && invoice.discount_value > 0 && (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-right font-medium">
+                    Discount ({invoice.discount_type === 'percentage' ? `${invoice.discount_value}%` : 'Flat'})
+                  </TableCell>
+                  <TableCell className="text-right text-red-600">
+                    -${(invoice.discount_type === 'flat' 
+                      ? invoice.discount_value 
+                      : (invoice.subtotal * (invoice.discount_value / 100))).toFixed(2)}
+                  </TableCell>
+                </TableRow>
+              )}
+
+              {invoice.shipping_cost > 0 && (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-right font-medium">
+                    Shipping Cost
+                  </TableCell>
+                  <TableCell className="text-right">
+                    ${invoice.shipping_cost.toFixed(2)}
+                  </TableCell>
+                </TableRow>
+              )}
 
               <TableRow>
                 <TableCell colSpan={3} className="text-right font-medium">
