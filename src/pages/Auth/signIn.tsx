@@ -26,7 +26,6 @@ export default function SignInForm() {
   
     const onSubmit = async (values: SignInFormValues) => {
       try {
-        // Check if input is email or username
         const isEmail = values.emailOrUsername.includes('@');
         const loginIdentifier = isEmail ? values.emailOrUsername : `${values.emailOrUsername}@evershift.co`; // Use a default domain for username login
         
@@ -54,10 +53,10 @@ export default function SignInForm() {
                 name="emailOrUsername"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email or Username</FormLabel>
+                    <FormLabel>Email</FormLabel>
                     <FormControl>
                       <Input 
-                        placeholder="email@example.com or username" 
+                        placeholder="email@example.com" 
                         {...field} 
                       />
                     </FormControl>
