@@ -36,13 +36,13 @@ export function Hero() {
                 Request Staff
               </Button>
             </Link>
-            <Link to="/signup">
-             {isAuthenticated() ? (
-                <Button variant="outline" onClick={signOut}>Sign Out</Button>
-              ) : (
-                <Button variant="outline" onClick={signOut}>Sign Up</Button>
-              )}
-            </Link>
+            {isAuthenticated() ? (
+              <Button variant="outline" onClick={signOut}>Sign Out</Button>
+            ) : (
+              <Link to="/signup">
+                <Button variant="outline">Sign Up</Button>
+              </Link>
+            )}
               {isAuthenticated() ? (
                 <Link to="/dashboard">
                   <Button variant="outline">Dashboard</Button>
