@@ -20,9 +20,9 @@ export function Hero() {
 
   const signOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      window.location.href = '/';
+      await supabase.auth.signOut();
+      localStorage.clear();
+      window.location.replace('/');
     } catch (error) {
       console.error('Error signing out:', error);
     }
