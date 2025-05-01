@@ -5,6 +5,8 @@ const stripe = new Stripe(Deno.env.get('STRIPE_API_KEY') || '', {
   httpClient: Stripe.createFetchHttpClient(),
 });
 
+const siteUrl = Deno.env.get('SITE_URL') || 'http://localhost:8080/';
+
 serve(async (req) => {
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -39,8 +41,8 @@ serve(async (req) => {
       }],
       mode: 'payment',
       customer_email: client_email,
-      success_url: 'http://localhost:8080/',
-      cancel_url: 'http://localhost:8080/',
+      success_url: siteUrl,
+      cancel_url: siteUrl,
     });
 
     console.log('✅ Checkout session created:', session.id);
