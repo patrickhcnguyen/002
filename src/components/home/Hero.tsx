@@ -4,6 +4,7 @@ import { Rocket } from "lucide-react";
 import { LogoDisplay } from "@/components/LogoDisplay";
 // import SignUpForm from "@/pages/Auth/signUp";
 import { useSession } from "@supabase/auth-helpers-react";
+import { supabase } from "@/integrations/supabase/client";
 
 
 
@@ -15,6 +16,10 @@ export function Hero() {
       return true;
     }
     return false;
+  }
+
+  const signOut = () => {
+    supabase.auth.signOut();
   }
 
   return (
@@ -32,7 +37,11 @@ export function Hero() {
               </Button>
             </Link>
             <Link to="/signup">
-              <Button variant="outline">Sign Up</Button>
+             {isAuthenticated() ? (
+                <Button variant="outline" onClick={signOut}>Sign Out</Button>
+              ) : (
+                <Button variant="outline" onClick={signOut}>Sign Up</Button>
+              )}
             </Link>
               {isAuthenticated() ? (
                 <Link to="/dashboard">
