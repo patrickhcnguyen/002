@@ -220,27 +220,41 @@ export function CreateInvoiceForm() {
   const handleSubmit = async () => {
     setIsSaving(true);
     try {
-      const timestamp = Date.now();
-      const request_id = `REQ-${timestamp}`;
-
-      const { data, error } = await supabase
-        .from('invoices')
+      // First create a Request
+      const { data: requestData, error: requestError } = await supabase
+        .from('Requests')
         .insert({
-          ...formData,
-          request_id,
-          created_at: new Date().toISOString()
+            first_name: formData.client_name?.split(' ')[0] || '',
+            last_name: formData.client_name?.split(' ').slice(1).join(' ') || '',
+            email: formData.client_email,
+            company_name: formData.company_name || '',
+            // phone_number: formData.phone_number || '',
+            closest_branch: formData.branch,
+            event_location: formData.event_location,
+            event_date: formData.due_date,
         })
         .select()
         .single();
 
-      if (error) throw error;
+      if (requestError) throw requestError;
+
+      const { data: invoiceData, error: invoiceError } = await supabase
+        .from('invoices')
+        .insert({
+          ...formData,
+          request_id: requestData.id,
+        })
+        .select()
+        .single();
+
+      if (invoiceError) throw invoiceError;
 
       toast({
         title: "Invoice created",
         description: "Your invoice has been created successfully."
       });
 
-      navigate(`/invoicing/${data.id}`, { state: { invoice: data } });
+      navigate(`/invoicing/${invoiceData.id}`, { state: { invoice: invoiceData } });
     } catch (error) {
       console.error('Error creating invoice:', error);
       toast({
@@ -259,7 +273,7 @@ export function CreateInvoiceForm() {
         <div className="flex items-center gap-4">
           <button 
             onClick={() => navigate('/invoicing')} 
-            className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground hover:bg-[#E6F7ED] rounded-md p-2"
           >
             <ArrowLeft className="h-4 w-4 hover:text-foreground" />
             Back to invoices
@@ -306,6 +320,12 @@ export function CreateInvoiceForm() {
                   className="mt-1"
                 />
               </div>
+              <label className="text-sm text-muted-foreground">Event Location</label>
+              <Input 
+                value={formData.event_location || ''} 
+                onChange={e => handleChange('event_location', e.target.value)} 
+                className="mt-1"
+              />
             </div>
           </div>
 
@@ -313,7 +333,7 @@ export function CreateInvoiceForm() {
             <h3 className="font-medium mb-4">Invoice Details</h3>
             <div className="space-y-4">
               <div>
-                <label className="text-sm text-muted-foreground">Location</label>
+                <label className="text-sm text-muted-foreground">Branch</label>
                 <Select 
                   value={formData.branch || ''} 
                   onValueChange={value => handleChange('branch', value)}
@@ -322,10 +342,27 @@ export function CreateInvoiceForm() {
                     <SelectValue placeholder="Select location" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="los_angeles">Los Angeles</SelectItem>
-                    <SelectItem value="san_francisco">San Francisco</SelectItem>
-                    <SelectItem value="new_york">New York</SelectItem>
-                    <SelectItem value="miami">Miami</SelectItem>
+                    <SelectItem value="Los Angeles, CA">Los Angeles</SelectItem>
+                    <SelectItem value="New York City, NY">New York</SelectItem>
+                    <SelectItem value="Atlanta, GA">Atlanta</SelectItem>
+                    <SelectItem value="Houston, TX">Houston</SelectItem>
+                    <SelectItem value="Washington, DC">Washington</SelectItem>
+                    <SelectItem value="Orange County, CA">Orange County</SelectItem>
+                    <SelectItem value="Chicago, IL">Chicago</SelectItem>
+                    <SelectItem value="San Francisco, CA">San Francisco</SelectItem>
+                    <SelectItem value="Miami, FL">Miami</SelectItem>
+                    <SelectItem value="Las Vegas, NV">Las Vegas</SelectItem>
+                    <SelectItem value="Salt Lake City, UT">Salt Lake City</SelectItem>
+                    <SelectItem value="Seattle, WA">Seattle</SelectItem>
+                    <SelectItem value="Orlando, FL">Orlando</SelectItem>
+                    <SelectItem value="Charlotte, NC">Charlotte</SelectItem>
+                    <SelectItem value="Boston, MA">Boston</SelectItem>
+                    <SelectItem value="Dallas, TX">Dallas</SelectItem>
+                    <SelectItem value="Austin, TX">Austin</SelectItem>
+                    <SelectItem value="Tampa, FL">Tampa</SelectItem>
+                    <SelectItem value="Phoenix, AZ">Phoenix</SelectItem>
+                    <SelectItem value="San Diego, CA">San Diego</SelectItem>
+                    <SelectItem value="New Orleans, LA">New Orleans</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -392,6 +429,12 @@ export function CreateInvoiceForm() {
                   className="mt-1"
                 />
               </div>
+              <label className = "text-sm text-muted-foreground">PO Number</label>
+              <Input 
+                value={formData.po_number || ''} 
+                onChange={e => handleChange('po_number', e.target.value)} 
+                className="mt-1"
+              />
             </div>
           </div>
         </div>
