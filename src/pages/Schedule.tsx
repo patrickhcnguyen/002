@@ -138,7 +138,7 @@ export default function Schedule() {
         return {
           id: invoice.id,
           title: `${request.type_of_event} - ${invoice.company_name || invoice.client_name}`,
-          date: parseISO(request.event_date),
+          date: parseISO(`${request.event_date}T12:00:00`),
           location: invoice.event_location || request.event_location,
           eventType: request.type_of_event,
           startTime,
