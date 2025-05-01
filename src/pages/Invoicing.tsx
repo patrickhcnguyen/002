@@ -1,19 +1,15 @@
 // main invoice page, calls the components
-// for now, lets just create a function that displays the invoices based on the admin's branch
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PlusCircle, Search } from "lucide-react";
-import { InvoiceList } from "@/components/invoice/InvoiceList";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { useNavigate } from "react-router-dom";
 import { SidebarProvider } from "@/components/ui/sidebar";
-import { useEffect } from "react";
 
 // invoicing imports
 import { InvoiceTable } from "@/features/invoicing/components/InvoiceTable";
-import { CreateInvoiceForm } from "@/features/invoicing/components/CreateInvoiceForm";
 
 export type StaffRequirement = {
   date: string;
