@@ -81,7 +81,8 @@ serve(async (req) => {
             invoice_id: paymentIntent.metadata.invoice_id,
             amount_paid: (paymentIntent.amount / 100),
             admin_email: paymentIntent.metadata.admin_email,
-            client_name: invoice.client_name || invoice.company_name // change to priortize company_name
+            client_name: invoice.client_name,
+            company_name: invoice.company_name
           })
         });
 
