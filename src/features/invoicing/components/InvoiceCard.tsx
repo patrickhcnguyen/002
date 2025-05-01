@@ -682,6 +682,16 @@ export function InvoiceCard() {
               ) : (
                 <p className="text-sm">{invoice.ship_to || "Not specified"}</p>
               )}
+              <h3 className="font-medium mt-4 mb-2">Event Location</h3>
+              {editMode ? (
+                <Input 
+                  value={invoice.event_location || ''} 
+                  onChange={e => handleChange('event_location', e.target.value, 0)} 
+                  className="mt-1"
+                />
+              ) : (
+                <p className="text-sm">{invoice.event_location || "Not specified"}</p>
+              )}
             </div>
             
             <div>
