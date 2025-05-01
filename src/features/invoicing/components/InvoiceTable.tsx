@@ -6,6 +6,9 @@ import { formatCurrency } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type SortConfig = {
   key: keyof Invoice | null;
@@ -16,9 +19,11 @@ export function InvoiceTable() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [adminBranch, setAdminBranch] = useState<string | null>(null);
+  const [branches, setBranches] = useState<string[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: null, direction: 'asc' });
   const navigate = useNavigate();
-
+  const { isSuperAdmin } = useAuth();
   const handleSort = (key: keyof Invoice) => {
     setSortConfig(current => ({
       key,
@@ -67,11 +72,8 @@ export function InvoiceTable() {
   useEffect(() => {
     async function fetchInvoices() {
       try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        console.log('Full session data:', sessionData);
-        
+        setIsLoading(true);
         const { data: userData } = await supabase.auth.getUser();
-        console.log('Full user data:', userData);
         
         const { data: adminData } = await supabase
           .from('admins')
@@ -79,22 +81,42 @@ export function InvoiceTable() {
           .eq('email', userData.user?.email)
           .single();
         
-        
         const branch = adminData?.branch || userData.user?.user_metadata?.branch;
 
-        if (!branch) {
+        if (!branch && !isSuperAdmin) {
           console.error('No branch found for admin');
           setIsLoading(false);
           return;
         }
 
         setAdminBranch(branch);
+        
+        // For superadmins, fetch all available branches
+        if (isSuperAdmin) {
+          const { data: branchesData } = await supabase
+            .from('invoices')
+            .select('branch')
+            .is('branch', 'not.null');
+            
+          if (branchesData) {
+            // Get unique branches
+            const uniqueBranches = [...new Set(branchesData.map(b => b.branch))];
+            setBranches(uniqueBranches);
+          }
+        }
 
-        const { data: invoicesData, error: invoicesError } = await supabase
+        let query = supabase
           .from('invoices')
           .select('id, request_id, branch, client_name, company_name, due_date, amount, balance, status, payment_terms, notes, ship_to, po_number, amount_paid, transaction_fee, client_email')
-          .eq('branch', branch)
           .order('due_date', { ascending: false });
+        
+        if (!isSuperAdmin) {
+          query = query.eq('branch', branch);
+        } else if (selectedBranch) {
+          query = query.eq('branch', selectedBranch);
+        }
+
+        const { data: invoicesData, error: invoicesError } = await query;
 
         if (invoicesError) {
           console.error('Error fetching invoices:', invoicesError);
@@ -110,117 +132,153 @@ export function InvoiceTable() {
     }
 
     fetchInvoices();
-  }, []);
+  }, [isSuperAdmin, selectedBranch]); 
+
+  const handleBranchChange = (branch: string) => {
+    setSelectedBranch(branch === "all" ? null : branch);
+  };
 
   if (isLoading) {
     return <div className="flex justify-center items-center p-4">Loading invoices...</div>;
   }
 
-  if (!adminBranch) {
+  if (!adminBranch && !isSuperAdmin) {
     return <div className="flex justify-center items-center p-4">No branch assigned to admin</div>;
   }
 
   return (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>
-              <Button
-                variant="ghost"
-                onClick={() => handleSort('request_id')}
-                className="h-8 flex items-center gap-1"
-              >
-                Request ID
-                {getSortIcon('request_id')}
-              </Button>
-            </TableHead>
-            <TableHead>
-              <Button
-                variant="ghost"
-                onClick={() => handleSort('client_name')}
-                className="h-8 flex items-center gap-1"
-              >
-                Client
-                {getSortIcon('client_name')}
-              </Button>
-            </TableHead>
-            <TableHead>
-              <Button
-                variant="ghost"
-                onClick={() => handleSort('due_date')}
-                className="h-8 flex items-center gap-1"
-              >
-                Due Date
-                {getSortIcon('due_date')}
-              </Button>
-            </TableHead>
-            <TableHead className="text-right">
-              <Button
-                variant="ghost"
-                onClick={() => handleSort('amount')}
-                className="h-8 flex items-center gap-1 ml-auto"
-              >
-                Amount
-                {getSortIcon('amount')}
-              </Button>
-            </TableHead>
-            <TableHead className="text-right">
-              <Button
-                variant="ghost"
-                onClick={() => handleSort('balance')}
-                className="h-8 flex items-center gap-1 ml-auto"
-              >
-                Balance
-                {getSortIcon('balance')}
-              </Button>
-            </TableHead>
-            <TableHead>
-              <Button
-                variant="ghost"
-                onClick={() => handleSort('status')}
-                className="h-8 flex items-center gap-1"
-              >
-                Status
-                {getSortIcon('status')}
-              </Button>
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {invoices.length === 0 ? (
+    <div>
+      {isSuperAdmin && (
+        <div className="mb-4 flex items-center gap-4">
+          <Badge variant="outline">Superadmin</Badge>
+          
+          <Select
+            value={selectedBranch || "all"}
+            onValueChange={handleBranchChange}
+          >
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Select branch" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Branches</SelectItem>
+              {branches.map(branch => (
+                <SelectItem key={branch} value={branch}>{branch}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          <div className="text-sm text-muted-foreground">
+            {invoices.length} invoice{invoices.length !== 1 ? 's' : ''} found
+          </div>
+        </div>
+      )}
+
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
             <TableRow>
-              <TableCell colSpan={6} className="text-center text-muted-foreground">
-                No invoices found for {adminBranch}
-              </TableCell>
+              <TableHead>
+                <Button
+                  variant="ghost"
+                  onClick={() => handleSort('request_id')}
+                  className="h-8 flex items-center gap-1"
+                >
+                  Request ID
+                  {getSortIcon('request_id')}
+                </Button>
+              </TableHead>
+              <TableHead>
+                <Button
+                  variant="ghost"
+                  onClick={() => handleSort('client_name')}
+                  className="h-8 flex items-center gap-1"
+                >
+                  Client
+                  {getSortIcon('client_name')}
+                </Button>
+              </TableHead>
+              <TableHead>
+                <Button
+                  variant="ghost"
+                  onClick={() => handleSort('due_date')}
+                  className="h-8 flex items-center gap-1"
+                >
+                  Due Date
+                  {getSortIcon('due_date')}
+                </Button>
+              </TableHead>
+              <TableHead className="text-right">
+                <Button
+                  variant="ghost"
+                  onClick={() => handleSort('amount')}
+                  className="h-8 flex items-center gap-1 ml-auto"
+                >
+                  Amount
+                  {getSortIcon('amount')}
+                </Button>
+              </TableHead>
+              <TableHead className="text-right">
+                <Button
+                  variant="ghost"
+                  onClick={() => handleSort('balance')}
+                  className="h-8 flex items-center gap-1 ml-auto"
+                >
+                  Balance
+                  {getSortIcon('balance')}
+                </Button>
+              </TableHead>
+              <TableHead>
+                <Button
+                  variant="ghost"
+                  onClick={() => handleSort('status')}
+                  className="h-8 flex items-center gap-1"
+                >
+                  Status
+                  {getSortIcon('status')}
+                </Button>
+              </TableHead>
             </TableRow>
-          ) : (
-            getSortedInvoices().map((invoice) => (
-              <TableRow 
-                key={invoice.id} 
-                className="cursor-pointer hover:bg-muted/50"
-                onClick={() => handleRowClick(invoice)}
-              >
-                <TableCell>{invoice.request_id}</TableCell>
-                <TableCell>
-                  {invoice.company_name ? invoice.company_name : invoice.client_name}
-                </TableCell>
-                <TableCell>{new Date(invoice.due_date).toLocaleDateString()}</TableCell>
-                <TableCell className="text-right">{formatCurrency(invoice.amount)}</TableCell>
-                <TableCell className="text-right">{formatCurrency(invoice.balance)}</TableCell>
-                <TableCell>
-                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
-                    ${invoice.status === 'paid' ? 'bg-green-100 text-green-800' : 
-                      invoice.status === 'partially_paid' ? 'bg-yellow-100 text-yellow-800' : 
-                      'bg-red-100 text-red-800'}`}>
-                    {invoice.status}
-                  </span>
+          </TableHeader>
+          <TableBody>
+            {invoices.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                  No invoices found {!isSuperAdmin ? `for ${adminBranch}` : ''}
                 </TableCell>
               </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+            ) : (
+              getSortedInvoices().map((invoice) => (
+                <TableRow 
+                  key={invoice.id} 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleRowClick(invoice)}
+                >
+                  <TableCell>{invoice.request_id}</TableCell>
+                  <TableCell>
+                    {invoice.company_name ? invoice.company_name : invoice.client_name}
+                    {isSuperAdmin && !selectedBranch && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Branch: {invoice.branch}
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell>{new Date(`${invoice.due_date}T12:00:00`).toLocaleDateString()}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(invoice.amount)}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(invoice.balance)}</TableCell>
+                  <TableCell>
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
+                      ${invoice.status === 'paid' ? 'bg-green-100 text-green-800' : 
+                        invoice.status === 'partially_paid' ? 'bg-yellow-100 text-yellow-800' : 
+                        'bg-red-100 text-red-800'}`}>
+                      {invoice.status}
+                    </span>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
