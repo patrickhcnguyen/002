@@ -13,6 +13,7 @@ import { useEffect } from "react";
 
 // invoicing imports
 import { InvoiceTable } from "@/features/invoicing/components/InvoiceTable";
+import { CreateInvoiceForm } from "@/features/invoicing/components/CreateInvoiceForm";
 
 export type StaffRequirement = {
   date: string;
@@ -42,6 +43,7 @@ export interface Invoice {
   ship_to: string | null;
   po_number: string | null;
   po_edit_counter: number | null;
+  event_location: string | null;
   amount_paid: number | null;
   transaction_fee: number;
   payment_intent_id: string | null;
@@ -69,15 +71,6 @@ export default function Invoicing() {
   const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
 
-  useEffect(() => {
-    console.log('Invoicing page mounted');
-  }, []);
-
-  const handleCreateInvoice = () => {
-    console.log('Create invoice clicked');
-    navigate('/invoicing/create');
-  };
-
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
@@ -97,9 +90,12 @@ export default function Invoicing() {
                 />
               </div>
             </div>
-            <Button onClick={handleCreateInvoice}>
+            <Button 
+              onClick={() => navigate('/invoicing/create')}
+              variant="default"
+            >
               <PlusCircle className="mr-2 h-4 w-4" />
-              Create Invoice
+              Create New Invoice
             </Button>
           </div>
           <InvoiceTable />
