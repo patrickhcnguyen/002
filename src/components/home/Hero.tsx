@@ -18,9 +18,15 @@ export function Hero() {
     return false;
   }
 
-  const signOut = () => {
-    supabase.auth.signOut();
-  }
+  const signOut = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
 
   return (
     <>
