@@ -108,6 +108,7 @@ serve(async (req)=>{
       client_name: `${requestData.first_name} ${requestData.last_name}`,
       client_email: requestData.email,
       company_name: requestData.company_name,
+      event_location: requestData.event_location,
       branch: requestData.closest_branch,
       subtotal: subtotal,
       amount: fullAmount,
