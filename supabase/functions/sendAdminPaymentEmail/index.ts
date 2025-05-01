@@ -13,12 +13,8 @@ serve(async (req) => {
   }
 
   try {
-    const { admin_email, invoice_id, amount_paid, client_name } = await req.json()
-    
-    // Log received data
-    console.log('Received data:', { admin_email, invoice_id, amount_paid, client_name });
+    const { admin_email, invoice_id, amount_paid, client_name, company_name } = await req.json()
 
-    // Validate admin email
     if (!admin_email || typeof admin_email !== 'string' || !admin_email.includes('@')) {
       throw new Error(`Invalid admin email: ${admin_email}`);
     }
@@ -28,7 +24,6 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Get invoice details
     const { data: invoice, error } = await supabase
       .from('invoices')
       .select('*')
@@ -68,7 +63,7 @@ serve(async (req) => {
           
           <div class="details">
             <p>A payment has been received for Invoice #${invoice.request_id}</p>
-            <p><strong>Client:</strong> ${client_name}</p>
+            <p><strong>Client:</strong> ${company_name || client_name}</p>
             <p><strong>Amount Paid:</strong> <span class="amount">${formatCurrency(amount_paid)}</span></p>
             <p><strong>Invoice Total:</strong> ${formatCurrency(invoice.amount)}</p>
             <p><strong>Remaining Balance:</strong> ${formatCurrency(invoice.amount - amount_paid)}</p>
