@@ -705,7 +705,7 @@ export function InvoiceCard() {
                     onChange={e => handleChange('due_date', e.target.value)} 
                   />
                 ) : (
-                  <div>{new Date(invoice.due_date).toLocaleDateString()}</div>
+                  <div>{new Date(`${invoice.due_date}T12:00:00`).toLocaleDateString()}</div>
                 )}
                 
                 <div className="text-muted-foreground">Payment Terms:</div>
@@ -895,7 +895,7 @@ export function InvoiceCard() {
                           </>
                         ) : (
                           <span className="text-sm text-muted-foreground">
-                            {new Date(requirement.date).toLocaleDateString()} ({requirement.startTime} - {requirement.endTime})
+                            {new Date(`${requirement.date}T12:00:00`).toLocaleDateString()} ({requirement.startTime} - {requirement.endTime})
                           </span>
                         )}
                       </div>
