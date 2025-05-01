@@ -23,6 +23,7 @@ import SignInForm from './pages/Auth/signIn.tsx';
 import { InvoiceCard } from './features/invoicing/components/InvoiceCard.tsx';
 import './index.css';
 import supabase from "@/lib/supabaseClient";
+import { CreateInvoiceForm } from './features/invoicing/components/CreateInvoiceForm.tsx';
 
 // Create a client
 const queryClient = new QueryClient();
@@ -75,7 +76,7 @@ const router = createBrowserRouter([
       },
       {
         path: "invoicing/create",
-        element: <CreateInvoice />,
+        element: <CreateInvoiceForm />,
       },
       {
         path: "invoicing/view",
